@@ -6,10 +6,19 @@ const os = require('os');
 const { pathToFileURL, fileURLToPath } = require('url');
 const { validateYoutubeUrl, parseSpotifyUrl, spotifyEntityQueries, safeTrackPath } = require('./lib');
 const { remux, embedArt, extractArt, dropSidecarArt, FFMPEG } = require('./remux');
+const { dict, catalogue, resolve } = require('./i18n');
 
 const MUSIC_DIR = path.join(os.homedir(), 'Music', 'iPod');
 // okladki trzymamy poza folderem muzyki, zeby ten zostal czysty - same utwory
 const COVER_DIR = path.join(app.getPath('userData'), 'covers');
+const LANG_FILE = path.join(app.getPath('userData'), 'language.json');
+
+// Jezyk bierze sie z systemu, chyba ze uzytkownik wybral inny w Ustawieniach.
+function savedLocale() {
+  try { return JSON.parse(fs.readFileSync(LANG_FILE, 'utf8')).locale; } catch { return null; }
+}
+let LOCALE = resolve(savedLocale() || app.getLocale());
+let T = dict(LOCALE);
 const AUDIO_EXT = ['.m4a', '.mp3', '.aac', '.wav', '.flac', '.ogg', '.opus'];
 // webp/jpg leca prosto z YouTube - Chromium wyswietli oba bez konwersji
 const ART_EXT = ['.jpg', '.webp', '.png'];
@@ -57,6 +66,13 @@ ipcMain.handle('quit', () => app.quit());
 ipcMain.handle('minimize', (e) => BrowserWindow.fromWebContents(e.sender).minimize());
 ipcMain.handle('reveal-music', () => shell.openPath(MUSIC_DIR));
 ipcMain.handle('downloader-status', () => ({ path: findYtdlp(), dir: MUSIC_DIR }));
+ipcMain.handle('language', () => ({ locale: LOCALE, dict: T, list: catalogue() }));
+ipcMain.handle('set-language', (e, locale) => {
+  LOCALE = resolve(locale);
+  T = dict(LOCALE);
+  try { fs.writeFileSync(LANG_FILE, JSON.stringify({ locale: LOCALE })); } catch {}
+  return { locale: LOCALE, dict: T };
+});
 
 ipcMain.handle('list-tracks', async () => {
   let files;
@@ -74,7 +90,7 @@ ipcMain.handle('list-tracks', async () => {
     out.push({
       file: pathToFileURL(full).href,
       art: cover ? pathToFileURL(cover).href : null,
-      artist: dash > 0 ? base.slice(0, dash).trim() : 'Nieznany artysta',
+      artist: dash > 0 ? base.slice(0, dash).trim() : T.unknownArtist,
       title: dash > 0 ? base.slice(dash + 3).trim() : base,
     });
   }
@@ -84,7 +100,7 @@ ipcMain.handle('list-tracks', async () => {
 ipcMain.handle('delete-track', (e, fileUrl) => {
   // Granica zaufania: kasujemy pliki z dysku - walidacja siedzi w lib.js (z testem).
   const p = safeTrackPath({ fileURLToPath, path }, MUSIC_DIR, fileUrl, AUDIO_EXT);
-  if (!p) return { ok: false, error: 'Plik spoza folderu Muzyka.' };
+  if (!p) return { ok: false, error: T.errOutside };
 
   try {
     fs.unlinkSync(p);
@@ -134,9 +150,7 @@ function runYtdlp(bin, target, video, onProgress) {
         const msg = (stderr || err.message).split('\n').slice(-3).join(' ').slice(0, 200);
         // 403 na strumieniu = YouTube zmienil klienta i stary yt-dlp odpada.
         // Bez tej podpowiedzi wyglada to jak awaria aplikacji.
-        return resolve({ ok: false, error: /403|Forbidden/.test(msg)
-          ? 'YouTube odrzucil pobieranie (403). Zaktualizuj: brew upgrade yt-dlp'
-          : msg });
+        return resolve({ ok: false, error: /403|Forbidden/.test(msg) ? T.err403 : msg });
       }
       resolve({ ok: true });
     });
@@ -184,15 +198,15 @@ ipcMain.handle('download', async (e, url, video) => {
 
   let targets;
   const sp = parseSpotifyUrl(url);
-  if (sp && video) return { ok: false, error: 'Filmik pobierzesz tylko z linku YouTube.' };
+  if (sp && video) return { ok: false, error: T.errVideoOnlyYt };
   if (sp) {
     let qs;
     try { qs = await spotifyQueries(sp); }
-    catch { return { ok: false, error: 'Nie udalo sie odczytac listy ze Spotify.' }; }
-    if (!qs.length) return { ok: false, error: 'Spotify nie zwrocil zadnych utworow (prywatna playlista?).' };
+    catch { return { ok: false, error: T.errSpotifyRead }; }
+    if (!qs.length) return { ok: false, error: T.errSpotifyEmpty };
     targets = qs.map(q => `ytsearch1:${q}`);
   } else {
-    const v = validateYoutubeUrl(url);
+    const v = validateYoutubeUrl(url, T);
     if (!v.ok) return v;
     targets = [v.href];
   }

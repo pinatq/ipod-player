@@ -1,11 +1,11 @@
 // Logika bez zaleznosci od Electrona -> daje sie odpalic w czystym node (test.js).
 const HOSTS = ['youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be'];
 
-function validateYoutubeUrl(raw) {
+function validateYoutubeUrl(raw, T = {}) {
   let u;
-  try { u = new URL(raw); } catch { return { ok: false, error: 'To nie jest poprawny link.' }; }
-  if (!['http:', 'https:'].includes(u.protocol)) return { ok: false, error: 'Tylko http/https.' };
-  if (!HOSTS.includes(u.hostname.replace(/^www\./, ''))) return { ok: false, error: 'Tylko linki z YouTube.' };
+  try { u = new URL(raw); } catch { return { ok: false, error: T.errBadLink || 'That is not a valid link.' }; }
+  if (!['http:', 'https:'].includes(u.protocol)) return { ok: false, error: T.errProtocol || 'Only http/https.' };
+  if (!HOSTS.includes(u.hostname.replace(/^www\./, ''))) return { ok: false, error: T.errOnlyYt || 'YouTube links only.' };
   return { ok: true, href: u.href };
 }
 

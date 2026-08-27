@@ -324,16 +324,18 @@ const $ = s => document.querySelector(s);
 const audio = $('#audio'), body = $('#body');
 
 let tracks = [], queue = [], qi = -1, stack = [], dlBin = null, dlDir = '';
+let T = {}, LANGS = [], LOCALE = 'en';                 // teksty z i18n.js przez preload
+const fill = (txt, vars) => String(txt).replace(/\{(\w+)\}/g, (m, k) => k in vars ? vars[k] : m);
 
 // ---------- ekrany ----------
 const MAIN = () => ({
   title:'iPod', split:true, sel:0,
   items:[
-    { lbl:'Muzyka',            icon:'collage',  go:() => MUSIC() },
-    { lbl:'Pobierz muzykę',    icon:'download', go:() => DOWNLOAD() },
-    { lbl:'Shuffle',           icon:'shuffle',  act:() => { if(!tracks.length) return; queue=[...tracks].sort(()=>Math.random()-.5); play(0); push(NOWPLAYING()); } },
-    { lbl:'Ustawienia',        icon:'gear',     go:() => SETTINGS() },
-    { lbl:'Teraz odtwarzane',  icon:'play',     act:() => { if(qi>=0) push(NOWPLAYING()); } },
+    { lbl:T.music,       icon:'collage',  go:() => MUSIC() },
+    { lbl:T.download,    icon:'download', go:() => DOWNLOAD() },
+    { lbl:T.shuffle,     icon:'shuffle',  act:() => { if(!tracks.length) return; queue=[...tracks].sort(()=>Math.random()-.5); play(0); push(NOWPLAYING()); } },
+    { lbl:T.settings,    icon:'gear',     go:() => SETTINGS() },
+    { lbl:T.nowPlaying,  icon:'play',     act:() => { if(qi>=0) push(NOWPLAYING()); } },
   ],
 });
 
@@ -343,37 +345,54 @@ let npTheme   = localStorage.getItem('nptheme') || 'classic';
 
 const MUSIC = () => {
   if (!tracks.length)
-    return { title:'Muzyka', split:true, sel:0,
-             items:[{ lbl:'Brak utworów', leaf:true, act:()=>{} }] };
+    return { title:T.music, split:true, sel:0,
+             items:[{ lbl:T.noTracks, leaf:true, act:()=>{} }] };
   return coverView ? COVERS() : {
-    title:'Muzyka', split:true, sel:0,
+    title:T.music, split:true, sel:0,
     items: tracks.map((t,i) => ({ lbl:t.title, sub:t.artist, art:t.art, leaf:true,
       act:() => { queue=[...tracks]; play(i); push(NOWPLAYING()); } })),
   };
 };
 
 const SETTINGS = () => ({
-  title:'Ustawienia', split:true, sel:0,
+  title:T.settings, split:true, sel:0,
   items:[
-    { lbl:`Widok: ${coverView ? 'Cover Flow' : 'Lista'}`, icon:'collage', leaf:true,
+    { lbl:`${T.view}: ${coverView ? T.viewCover : T.viewList}`, icon:'collage', leaf:true,
       act:() => { coverView = !coverView; localStorage.setItem('view', coverView ? 'cover' : 'list');
                   stack[stack.length-1] = SETTINGS(); render(); } },
-    { lbl:`Ekran odtwarzania: ${(NP_THEMES.find(t => t[0] === npTheme) || NP_THEMES[0])[1]}`, icon:'play',
+    { lbl:`${T.npScreen}: ${T[(NP_THEMES.find(t => t[0] === npTheme) || NP_THEMES[0])[1]]}`, icon:'play',
       go:() => NPSCREEN() },
-    { lbl:'Usuń utwór',           icon:'trash',   go:() => REMOVE() },
-    { lbl:'Otwórz folder Muzyka', icon:'folder',  leaf:true, act:() => ipod.revealMusic() },
-    { lbl:'Odśwież bibliotekę',   icon:'refresh', leaf:true, act:async () => { await load(); render(); } },
-    { lbl:'O programie',          icon:'info',    go:() => ({ title:'O programie', sel:0, items:[
-        { lbl:`Utworów: ${tracks.length}`, leaf:true, act:()=>{} },
-        { lbl:`Pobieranie: ${dlBin ? 'gotowe' : 'niedostępne'}`, leaf:true, act:()=>{} },
-        { lbl:'iPod Classic — Electron', leaf:true, act:()=>{} },
+    { lbl:T.removeTrack,          icon:'trash',   go:() => REMOVE() },
+    { lbl:`${T.language}: ${(LANGS.find(l => l[0] === LOCALE) || ['','English'])[1]}`, icon:'globe',
+      go:() => LANGSCREEN() },
+    { lbl:T.openFolder,           icon:'folder',  leaf:true, act:() => ipod.revealMusic() },
+    { lbl:T.refresh,              icon:'refresh', leaf:true, act:async () => { await load(); render(); } },
+    { lbl:T.about,                icon:'info',    go:() => ({ title:T.about, sel:0, items:[
+        { lbl:`${T.tracksCount}: ${tracks.length}`, leaf:true, act:()=>{} },
+        { lbl:`${T.downloader}: ${dlBin ? T.ready : T.unavailable}`, leaf:true, act:()=>{} },
+        { lbl:'iPod Player — Electron', leaf:true, act:()=>{} },
       ]}) },
   ],
 });
 
 // Cover Flow - okladki ustawione w harmonijke, srodkowa na wprost.
+// Jezyk: lista nazw wlasnych, wybor leci do main i tam sie zapisuje.
+const LANGSCREEN = () => ({
+  title:T.language, split:true,
+  sel: Math.max(0, LANGS.findIndex(l => l[0] === LOCALE)),
+  items: LANGS.map(([code, label]) => ({
+    lbl:(LOCALE === code ? '✓ ' : '') + label, icon:'globe', leaf:true,
+    act: async () => {
+      const r = await ipod.setLanguage(code);
+      LOCALE = r.locale; T = r.dict;
+      stack[stack.length-1] = LANGSCREEN();
+      render();
+    },
+  })),
+});
+
 const COVERS = () => ({
-  title:'Muzyka', sel:0, cf:true,
+  title:T.music, sel:0, cf:true,
   items: tracks.map((t, i) => ({
     lbl:t.title, sub:t.artist, art:t.art,
     act:() => { queue = [...tracks]; play(i); push(NOWPLAYING()); },
@@ -382,17 +401,17 @@ const COVERS = () => ({
 
 // Usuwanie z poziomu aplikacji - dwa kroki, zeby nie skasowac czegos jednym kliknieciem.
 const REMOVE = () => ({
-  title:'Usuń utwór', split:true, sel:0,
+  title:T.removeTrack, split:true, sel:0,
   items: tracks.length
     ? tracks.map(t => ({ lbl:t.title, sub:t.artist, art:t.art, go:() => CONFIRM(t) }))
-    : [{ lbl:'Brak utworów', icon:'trash', leaf:true, act:()=>{} }],
+    : [{ lbl:T.noTracks, icon:'trash', leaf:true, act:()=>{} }],
 });
 
 const CONFIRM = (t) => {
   const s = {
-    title:'Na pewno?', split:true, sel:1,        // kursor domyslnie na "Nie"
+    title:T.sure, split:true, sel:1,             // kursor domyslnie na "Nie"
     items:[
-      { lbl:'Tak, usuń', icon:'trash', sub:t.title, leaf:true, act: async () => {
+      { lbl:T.yesRemove, icon:'trash', sub:t.title, leaf:true, act: async () => {
           const r = await ipod.deleteTrack(t.file);
           if (!r.ok) { s.items[0].lbl = '✗ ' + r.error; return render(); }
           // jesli akurat gral - zatrzymaj, bo plik zniknal spod niego
@@ -404,23 +423,18 @@ const CONFIRM = (t) => {
           stack[stack.length - 1] = REMOVE();      // i odswiez liste
           render();
         } },
-      { lbl:'Nie', sub:t.title, leaf:true, act:() => pop() },
+      { lbl:T.no, sub:t.title, leaf:true, act:() => pop() },
     ],
   };
   return s;
 };
 
 const NP_THEMES = [
-  ['classic',  'Klasyczny'],
-  ['cover',    'Pełna okładka'],
-  ['flow',     'Cover Flow'],
-  ['vinyl',    'Winyl'],
-  ['dolphins', 'Delfiny'],
-  ['race',     'Wyścigówka'],
-  ['gauges',   'Wskazówki'],
-  ['dj',       'Gramofony'],
-  ['wave',     'Fale'],
-  ['shuffle',  'Losowy (co utwór)'],
+  ['classic',  'thClassic'],  ['cover',    'thCover'],
+  ['flow',     'thFlow'],     ['vinyl',    'thVinyl'],
+  ['dolphins', 'thDolphins'], ['race',     'thRace'],
+  ['gauges',   'thGauges'],   ['dj',       'thDj'],
+  ['wave',     'thWave'],     ['shuffle',  'thShuffle'],
 ];
 
 // 'shuffle' losuje jeden z konkretnych ekranow przy kazdej zmianie utworu
@@ -435,24 +449,24 @@ const reshuffle = () => {
 function refresh() {
   const s = cur();
   if (s.np) return renderNP();
-  if (s.title === 'Ekran odtwarzania') stack[stack.length-1] = NPSCREEN();
-  else if (s.title === 'Ustawienia')   stack[stack.length-1] = SETTINGS();
+  if (s.title === T.npScreen)      stack[stack.length-1] = NPSCREEN();
+  else if (s.title === T.settings) stack[stack.length-1] = SETTINGS();
   render();
 }
 
 const NPSCREEN = () => ({
-  title:'Ekran odtwarzania', split:true,
+  title:T.npScreen, split:true,
   sel: Math.max(0, NP_THEMES.findIndex(t => t[0] === npTheme)),
-  items: NP_THEMES.map(([id, lbl]) => ({
-    lbl:(npTheme === id ? '✓ ' : '') + lbl, icon:'play', leaf:true,
+  items: NP_THEMES.map(([id, key]) => ({
+    lbl:(npTheme === id ? '✓ ' : '') + T[key], icon:'play', leaf:true,
     act:() => { npTheme = id; localStorage.setItem('nptheme', id);
                 if (id === 'shuffle') reshuffle();
                 stack[stack.length-1] = NPSCREEN(); render(); },
   })),
 });
 
-const NOWPLAYING = () => ({ title:'Teraz odtwarzane', np:true });
-const DOWNLOAD   = () => ({ title:'Pobierz', dl:true });
+const NOWPLAYING = () => ({ title:T.nowPlaying, np:true });
+const DOWNLOAD   = () => ({ title:T.download, dl:true });
 
 // ---------- nawigacja ----------
 const cur = () => stack[stack.length-1];
@@ -515,7 +529,7 @@ function paintBar() {
   const f = $('#pfill'); if (!f) return;
   if (volMode) {
     f.style.width = audio.volume * 100 + '%';
-    $('#pnow').textContent = 'Głośność';
+    $('#pnow').textContent = T.volume;
     $('#pend').textContent = Math.round(audio.volume * 100) + '%';
   } else {
     f.style.width = (audio.duration ? audio.currentTime/audio.duration*100 : 0) + '%';
@@ -539,6 +553,7 @@ const ICON = {
   refresh:  SVG('<path d="M36 24a12 12 0 1 1-3.5-8.5"/><path d="M36 11v8h-8"/>'),
   info:     SVG('<circle cx="24" cy="24" r="14"/><path d="M24 23v10"/><circle cx="24" cy="16.5" r="1.9" fill="#fff" stroke="none"/>'),
   note:     SVG('<path d="M20 33V14l15-3v19"/><ellipse cx="15.5" cy="33" rx="5" ry="4.2" fill="#fff" stroke="none"/><ellipse cx="30.5" cy="30" rx="5" ry="4.2" fill="#fff" stroke="none"/>'),
+  globe:    SVG('<circle cx="24" cy="24" r="14"/><ellipse cx="24" cy="24" rx="6" ry="14"/><path d="M11 19h26M11 29h26"/>'),
   trash:    SVG('<path d="M10 15h28"/><path d="M19 15v-4h10v4"/><path d="M14 15l2 24h16l2-24"/><path d="M21 21v12M27 21v12"/>'),
 };
 
@@ -656,7 +671,7 @@ function renderNP() {
       <div class="stage st-${th}"></div>
       <div class="foot">
         <div class="ti"></div><div class="ar"></div>
-        <div class="nof">${qi+1} z ${queue.length}</div>
+        <div class="nof">${qi+1} ${T.of} ${queue.length}</div>
         <div class="prog">
           <div class="track"><i id="pfill"></i></div>
           <div class="times"><span id="pnow">0:00</span><span id="pend">0:00</span></div>
@@ -665,7 +680,7 @@ function renderNP() {
     </div>`;
   npArt = null;                                   // okladka dla scen na canvasie
   if (t?.art) { npArt = new Image(); npArt.src = t.art; }
-  body.querySelector('.ti').textContent = t ? t.title  : 'Nic nie gra';
+  body.querySelector('.ti').textContent = t ? t.title  : T.nothingPlaying;
   body.querySelector('.ar').textContent = t ? t.artist : '';
   (STAGE[th] || STAGE.classic)(body.querySelector('.stage'), t);
   paintBar();
@@ -1883,7 +1898,7 @@ function renderDL() {
   const s = cur();
   body.className = 'body';
   body.innerHTML = `<div class="dl">
-      <div class="seg"><button id="mAud" class="on">Muzyka</button><button id="mVid">Filmik</button></div>
+      <div class="seg"><button id="mAud" class="on">${T.tabMusic}</button><button id="mVid">${T.tabVideo}</button></div>
       <h3 id="dtitle"></h3>
       <input id="url" spellcheck="false">
       <div class="msg" id="dmsg"></div>
@@ -1896,12 +1911,9 @@ function renderDL() {
     video = v;
     $('#mAud').classList.toggle('on', !v);
     $('#mVid').classList.toggle('on', v);
-    $('#dtitle').textContent = v ? 'Wklej link z YouTube' : 'Wklej link z YouTube lub Spotify';
-    inp.placeholder = v ? 'youtube.com/watch?v=…' : 'youtube.com/watch?v=… albo open.spotify.com/…';
-    if (dlBin) hint.innerHTML = v
-      ? 'Enter albo środkowy przycisk pobiera. Film w najwyższej jakości (MP4) ląduje w ~/Music/iPod.'
-      : 'Enter albo środkowy przycisk pobiera. Plik ląduje w ~/Music/iPod i pojawia się w Muzyce.'
-        + '<br>Link ze Spotify (utwór, album, playlista) służy tylko za listę tytułów — dźwięk i tak leci z YouTube.';
+    $('#dtitle').textContent = v ? T.pasteYt : T.pasteYtSp;
+    inp.placeholder = v ? T.phYt : T.phYtSp;
+    if (dlBin) hint.textContent = v ? T.hintVideo : T.hintAudio + ' ' + T.hintSpotify;
     inp.focus();
   };
   $('#mAud').onclick = () => setMode(false);
@@ -1910,25 +1922,28 @@ function renderDL() {
 
   if (!dlBin) {
     msg.className = 'msg err';
-    msg.textContent = 'Brak yt-dlp — bez niego pobieranie nie zadziała.';
-    hint.innerHTML = 'Zainstaluj: <code>brew install yt-dlp</code><br>Potem: Ustawienia → Odśwież bibliotekę.';
+    msg.textContent = T.noYtdlp;
+    hint.innerHTML = '';
+    hint.append(T.installHint + ' ');
+    const c = document.createElement('code'); c.textContent = 'brew install yt-dlp';
+    hint.append(c, document.createElement('br'), T.thenRefresh);
   }
 
   // jedno zrodlo pobierania - Enter i srodkowy przycisk wolaja to samo
   s.submit = async () => {
     if (inp.disabled || !inp.value.trim()) return;
-    msg.className = 'msg'; msg.textContent = 'Pobieram… 0%';
+    msg.className = 'msg'; msg.textContent = T.downloading + ' 0%';
     inp.disabled = true;
     const r = await ipod.download(inp.value.trim(), video);
     inp.disabled = false;
     if (r.ok) {
       msg.className = 'msg ok';
       msg.textContent = r.total > 1
-        ? `Gotowe. Pobrano ${r.total - r.failed} z ${r.total}.`
-        : video ? 'Gotowe. Film zapisany w ~/Music/iPod.' : 'Gotowe. Dodano do biblioteki.';
+        ? fill(T.doneMany, { ok: r.total - r.failed, total: r.total })
+        : video ? T.doneVideo : T.doneAudio;
       inp.value = ''; await load();
     } else if (r.error === 'NO_YTDLP') {
-      msg.className = 'msg err'; msg.textContent = 'Brak yt-dlp.';
+      msg.className = 'msg err'; msg.textContent = T.noYtdlp;
     } else {
       msg.className = 'msg err'; msg.textContent = r.error;
     }
@@ -1937,7 +1952,8 @@ function renderDL() {
   inp.onkeydown = e => { if (e.key === 'Enter') s.submit(); };
 }
 
-ipod.onProgress(p => { const m = $('#dmsg'); if (m && m.textContent.startsWith('Pobieram')) m.textContent = `Pobieram… ${p}%`; });
+ipod.onProgress(p => { const m = $('#dmsg');
+  if (m && m.textContent.startsWith(T.downloading)) m.textContent = `${T.downloading} ${p}%`; });
 
 // ---------- click wheel ----------
 const wheel = $('#wheel');
@@ -2012,6 +2028,8 @@ function paintBattery() {
 async function load() { tracks = await ipod.listTracks(); }
 
 (async () => {
+  const L = await ipod.language();          // jezyk systemu albo zapamietany wybor
+  T = L.dict; LANGS = L.list; LOCALE = L.locale;
   const st = await ipod.downloaderStatus();
   dlBin = st.path; dlDir = st.dir;
   await load();
