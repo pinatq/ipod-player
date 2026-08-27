@@ -1,0 +1,35 @@
+{
+  "name": "ipod-player",
+  "version": "1.0.0",
+  "description": "Odtwarzacz muzyki na macOS w stylu iPoda Classic, z rastrowanymi wizualizacjami",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "pl.milosz.ipodplayer",
+    "productName": "iPod Player",
+    "files": [
+      "main.js",
+      "preload.js",
+      "lib.js",
+      "remux.js",
+      "index.html",
+      "icon.png",
+      "ytshim/**"
+    ],
+    "asarUnpack": [
+      "ytshim/**"
+    ],
+    "mac": {
+      "icon": "icon.png",
+      "category": "public.app-category.music",
+      "target": "dmg"
+    }
+  }
+}

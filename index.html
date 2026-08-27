@@ -1,0 +1,2024 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>iPod Classic</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; user-select:none; }
+  body {
+    background:transparent; height:100vh; display:flex;
+    align-items:center; justify-content:center;
+    font:13px/1.35 "Helvetica Neue", -apple-system, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ---------- obudowa ---------- */
+  .ipod {
+    width:372px; height:640px; border-radius:28px; padding:26px 36px 0;
+    background:linear-gradient(160deg,#fdfdfe 0%,#e9eaee 18%,#dcdde2 55%,#cbccd2 100%);
+    /* ponytail: bez zewnetrznego drop-shadow - na macOS Tahoe w oknie
+       transparent zapieka sie w statyczne paski. Zostaja tylko insety + hairline. */
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.9) inset,
+      0 -1px 0 rgba(0,0,0,.06) inset,
+      0 0 0 1px rgba(0,0,0,.16);
+    display:flex; flex-direction:column; align-items:center;
+    -webkit-app-region:drag; position:relative;
+  }
+  .win { position:absolute; top:11px; right:13px; display:flex; gap:7px; -webkit-app-region:no-drag; }
+  .win i { width:11px; height:11px; border-radius:50%; cursor:pointer; opacity:0; transition:opacity .15s; }
+  .ipod:hover .win i { opacity:.7; }
+  .win i:hover { opacity:1 !important; }
+  .win .c { background:#ff5f57; } .win .m { background:#febc2e; }
+
+  /* ---------- ekran ---------- */
+  .bezel {
+    width:300px; height:230px; border-radius:5px; padding:4px;
+    background:linear-gradient(#2b2b2d,#111);
+    box-shadow:0 1px 2px rgba(255,255,255,.7), 0 2px 7px rgba(0,0,0,.4) inset;
+    -webkit-app-region:no-drag;
+  }
+  .lcd {
+    width:100%; height:100%; border-radius:2px; overflow:hidden;
+    background:#d8dee7; display:flex; flex-direction:column;
+    color:#0d0d0d; position:relative;
+  }
+
+  .bar {
+    height:21px; flex:none; display:flex; align-items:center; padding:0 6px;
+    background:linear-gradient(#fcfcfd,#dfe3ea 48%,#ccd2dc 52%,#e6e9ef);
+    border-bottom:1px solid #9aa0ab; font-size:11.5px; font-weight:600;
+    text-shadow:0 1px 0 rgba(255,255,255,.8);
+  }
+  .bar .t { flex:1; text-align:center; letter-spacing:.1px; }
+  .bar .pl { width:22px; font-size:10px; }
+  .batt { width:22px; height:11px; border:1.2px solid #4b4b4b; border-radius:2px; position:relative; }
+  .batt::after { content:''; position:absolute; right:-3.4px; top:3px; width:2px; height:5px; background:#4b4b4b; border-radius:0 1px 1px 0; }
+  /* scaleX zamiast width - skaluje sie czysto wewnatrz ramki, bez wystawania */
+  .batt i { position:absolute; inset:1.4px; border-radius:1px;
+            background:linear-gradient(#7ee07e,#3faa3f);
+            transform-origin:left center;
+            transition:transform .6s ease, background .6s ease; }
+  .batt.mid  i { background:linear-gradient(#ffd98a,#e8a317); }
+  .batt.low  i { background:linear-gradient(#ff9b8f,#d9382a); }
+  .bolt { font-size:9px; margin-left:2px; color:#3c7a3c; }
+
+  .body { flex:1; display:flex; overflow:hidden; }
+  .list { flex:1; overflow-y:auto; background:#fff; scrollbar-width:none; }
+  .list::-webkit-scrollbar { display:none; }
+  .split .list { flex:0 0 55%; border-right:1px solid #b9bec7; }
+
+  .row {
+    display:flex; align-items:center; gap:5px; padding:4px 6px;
+    font-size:13px; border-bottom:1px solid #eef0f3;
+  }
+  /* dlugie tytuly lamia sie na druga linie zamiast uciekac w prawo */
+  .row .lbl {
+    flex:1; min-width:0; line-height:1.25;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+    overflow:hidden; overflow-wrap:anywhere;
+  }
+  .row .ch { font-size:11px; color:#8b9099; }
+  /* ---------- Cover Flow: okladki w harmonijke ---------- */
+  .cf { flex:1; position:relative; overflow:hidden;
+        background:linear-gradient(#20242c 0%,#0c0e12 62%,#000 100%);
+        perspective:620px; perspective-origin:50% 42%; }
+  .cf .cv {
+    position:absolute; left:50%; top:42%; width:86px; height:86px;
+    margin:-43px 0 0 -43px; transform-style:preserve-3d;
+    transition:transform .3s cubic-bezier(.25,.8,.35,1), opacity .3s ease;
+    background:linear-gradient(135deg,#5b6270,#2e333d);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 6px 16px rgba(0,0,0,.65);
+  }
+  /* absolutnie, bo w kontenerze flex obrazek nie wypelnial kafelka */
+  .cf .cv img { position:absolute; inset:0; width:100%; height:100%;
+                object-fit:cover; display:block; }
+  .cf .cv svg { width:50%; height:50%; opacity:.85; }
+  /* odbicie pod okladka - to co sprzedaje efekt */
+  .cf .cv::after {
+    content:''; position:absolute; top:100%; left:0; right:0; height:100%;
+    background:inherit; transform:scaleY(-1); transform-origin:top;
+    opacity:.22; filter:blur(.4px);
+    -webkit-mask-image:linear-gradient(rgba(0,0,0,.55),transparent 62%);
+  }
+  .cf .cap {
+    position:absolute; left:0; right:0; bottom:9px; text-align:center;
+    color:#fff; font-size:10.5px; font-weight:600; padding:0 8px;
+    text-shadow:0 1px 3px rgba(0,0,0,.9); line-height:13px;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+    overflow:hidden; overflow-wrap:anywhere;
+  }
+  .cf .cap small { display:block; font-weight:400; font-size:10px;
+                   color:rgba(255,255,255,.6); margin-top:1px; }
+  .row.sel {
+    background:linear-gradient(#6fb0e8,#2f7ec9 52%,#2a70bb 53%,#3f8ada);
+    color:#fff; text-shadow:0 1px 1px rgba(0,0,0,.35);
+    border-bottom-color:#2a70bb;
+  }
+  .row.sel .ch { color:#fff; }
+
+  .prev { flex:1; background:linear-gradient(#f7f8fa,#dfe3ea); display:flex;
+          flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:10px; }
+  .art {
+    width:104px; height:104px; border-radius:3px; flex:none;
+    background:linear-gradient(135deg,#5b6270,#2e333d);
+    box-shadow:0 2px 6px rgba(0,0,0,.3); position:relative; overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+    color:rgba(255,255,255,.85); font-size:34px;
+  }
+  .art img { width:100%; height:100%; object-fit:cover; display:block; }
+  .art svg { width:52%; height:52%; opacity:.92; }
+  .art .grid { display:grid; grid-template-columns:1fr 1fr; width:100%; height:100%; }
+  .art .grid img { width:100%; height:100%; }
+  .art::after { content:''; position:absolute; inset:0; pointer-events:none;
+    background:linear-gradient(125deg,rgba(255,255,255,.34) 0%,transparent 46%); }
+  .prev .cap { font-size:11px; color:#555b66; text-align:center; line-height:1.3;
+               max-width:100%; overflow:hidden; overflow-wrap:anywhere;
+               display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
+
+  /* ---------- now playing ---------- */
+  .np { flex:1; background:linear-gradient(#fbfcfd,#e4e8ee); display:flex;
+        flex-direction:column; align-items:center; padding:9px 12px; gap:7px; }
+  .np { gap:5px; }
+  .np .art { width:70px; height:70px; }
+  .np .ti { font-size:13.5px; font-weight:600; text-align:center; max-width:100%; flex:none;
+            line-height:17px; display:-webkit-box; -webkit-line-clamp:2;
+            -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
+  .np .ar { font-size:12px; color:#4c525c; max-width:100%; flex:none; text-align:center;
+            line-height:15px; display:-webkit-box; -webkit-line-clamp:2;
+            -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
+  .np .nof { font-size:10.5px; color:#767c86; flex:none; line-height:14px; }
+  .prog { width:100%; margin-top:auto; }
+  .track {
+    height:9px; border-radius:5px; background:#c3c8d1;
+    box-shadow:0 1px 2px rgba(0,0,0,.22) inset; overflow:hidden;
+  }
+  .track i { display:block; height:100%; width:0;
+    background:linear-gradient(#8fc4f2,#3d84cf 52%,#2f74bf 53%,#5ba0e0); }
+  .times { display:flex; justify-content:space-between; font-size:10px; color:#5b6069; margin-top:3px; }
+
+  /* ---------- ekrany odtwarzania (Ustawienia > Ekran odtwarzania) ---------- */
+  .np .stage { flex:1; width:100%; min-height:0; position:relative; overflow:hidden;
+               display:flex; align-items:center; justify-content:center; }
+  .np .foot { width:100%; flex:none; display:flex; flex-direction:column;
+              align-items:center; gap:1px; }
+  .np.classic .art { width:78px; height:78px; }
+
+  /* motywy pelnoekranowe: opis i pasek leza NA obrazie */
+  .np.ov { padding:0; gap:0; position:relative; background:#000; }
+  .np.ov .stage { position:absolute; inset:0; }
+  .np.ov .foot { position:absolute; left:0; right:0; bottom:0; z-index:2; color:#fff;
+                 padding:16px 12px 7px; background:linear-gradient(transparent,rgba(0,0,0,.8) 58%); }
+  .np.ov .ar, .np.ov .nof { color:rgba(255,255,255,.72); }
+  .np.ov .ti { text-shadow:0 1px 3px rgba(0,0,0,.85); }
+  .np.ov .track { background:rgba(255,255,255,.26); box-shadow:none; }
+  .np.ov .times { color:rgba(255,255,255,.72); }
+  .np canvas { position:absolute; inset:0; width:100%; height:100%; }
+  .np canvas.lofi { image-rendering:pixelated; }   /* matryca ma byc widoczna */
+
+  /* pelna okladka - rozmyte tlo z tej samej grafiki */
+  .st-cover .bg { position:absolute; inset:-14px; background:#1a1d22 center/cover;
+                  filter:blur(12px) brightness(.5); }
+  .st-cover .art { width:112px; height:112px; margin-bottom:52px; z-index:1;
+                   box-shadow:0 7px 20px rgba(0,0,0,.65); }
+
+  /* cover flow na ekranie odtwarzania - te same kafle co w Muzyce */
+  .st-flow .cf { position:absolute; inset:0; }
+  .st-flow .cf .cv { top:34%; width:92px; height:92px; margin:-46px 0 0 -46px; }
+
+  /* winyl - krazek lezy za opisem, nizej, w calosci widoczny */
+  .st-vinyl { background:radial-gradient(120% 95% at 50% 28%,#3b424e 0%,#0b0d12 100%); }
+  /* wyzsza specyficznosc niz `.np .stage`, inaczej krazek dalej stal na srodku */
+  .np .stage.st-vinyl { align-items:flex-start; }
+  .st-vinyl .disc {
+    width:146px; height:146px; margin-top:8px; border-radius:50%; position:relative;
+    background:repeating-radial-gradient(circle at 50% 50%,#101116 0 2px,#292c33 2px 4px);
+    box-shadow:0 6px 18px rgba(0,0,0,.65), 0 0 0 1px rgba(255,255,255,.14) inset;
+    display:flex; align-items:center; justify-content:center;
+    animation:spin 3.6s linear infinite;
+  }
+  .st-vinyl .disc.pz { animation-play-state:paused; }
+  .st-vinyl .art { width:56px; height:56px; border-radius:50%; }
+  .st-vinyl .disc::after {
+    content:''; position:absolute; width:8px; height:8px; border-radius:50%; z-index:2;
+    background:#eceef1; box-shadow:0 0 0 1px rgba(0,0,0,.45);
+  }
+  .st-vinyl .disc::before {                       /* refleks swiatla na krazku */
+    content:''; position:absolute; inset:0; border-radius:50%; z-index:1; pointer-events:none;
+    background:linear-gradient(125deg,rgba(255,255,255,.24) 0%,transparent 42%,transparent 58%,rgba(255,255,255,.1) 100%);
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* delfiny / wyscigowka / wskazowki - wyswietlacz jak w Pioneerze */
+  .st-dolphins, .st-race, .st-gauges, .st-dj { background:linear-gradient(#0b2c47,#04121f 68%,#010810); }
+  .st-gauges::after, .st-dj::after {          /* siatka pikseli - to daje klimat matrycy */
+    content:''; position:absolute; inset:0; pointer-events:none; z-index:1;
+    background:
+      repeating-linear-gradient(rgba(0,0,0,.26) 0 1px, transparent 1px 2px),
+      repeating-linear-gradient(90deg, rgba(0,0,0,.17) 0 1px, transparent 1px 2px);
+  }
+  .st-wave { background:radial-gradient(120% 90% at 50% 40%,#1d3350 0%,#070b12 100%); }
+
+  /* ---------- ekran pobierania ---------- */
+  .dl { flex:1; background:#fff; padding:12px; display:flex; flex-direction:column; gap:9px; }
+  .dl h3 { font-size:12.5px; font-weight:600; }
+  .dl input {
+    font:12px "Helvetica Neue", sans-serif; padding:6px 7px; border:1px solid #a8aeb8;
+    border-radius:3px; outline:none; background:#fdfdfd; user-select:text;
+  }
+  .dl input:focus { border-color:#3d84cf; box-shadow:0 0 0 2px rgba(61,132,207,.24); }
+  .dl .seg { display:flex; border:1px solid #a8aeb8; border-radius:3px; overflow:hidden; flex:none; }
+  .dl .seg button {
+    flex:1; font:11.5px "Helvetica Neue", sans-serif; padding:5px 0;
+    border:0; background:#fdfdfd; color:#5b6069; cursor:pointer;
+  }
+  .dl .seg button.on {
+    background:linear-gradient(#6fb0e8,#2f7ec9 52%,#2a70bb 53%,#3f8ada);
+    color:#fff; font-weight:600; text-shadow:0 1px 1px rgba(0,0,0,.35);
+  }
+  .dl .msg { font-size:11px; color:#5b6069; line-height:1.45; }
+  .dl .msg.err { color:#b3261e; }
+  .dl .msg.ok { color:#1c6b2e; }
+  .dl .hint { font-size:10.5px; color:#8b9099; margin-top:auto; line-height:1.4; }
+  .dl code { background:#eef0f3; padding:1px 4px; border-radius:2px; font-size:10px; user-select:text; }
+
+  /* ---------- click wheel ---------- */
+  .wheelwrap { flex:1; display:flex; align-items:center; justify-content:center; -webkit-app-region:no-drag; }
+  .wheel {
+    width:216px; height:216px; border-radius:50%; position:relative; cursor:pointer;
+    background:linear-gradient(150deg,#fbfbfc,#e4e5e9 46%,#d5d6db);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.95) inset,
+      0 -1px 3px rgba(0,0,0,.1) inset,
+      0 0 0 1px rgba(0,0,0,.11),
+      0 3px 9px rgba(0,0,0,.17);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .wheel span {
+    position:absolute; font-size:10.5px; font-weight:700; color:#8a8f98;
+    letter-spacing:.7px; pointer-events:none; text-shadow:0 1px 0 rgba(255,255,255,.85);
+    transition:color .25s, text-shadow .25s;
+  }
+  /* najechanie kursorem zapala kolo: napisy na bialo, krawedzie dostaja poswiate */
+  .wheel { transition:box-shadow .35s ease; }
+  .wheel:hover {
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.95) inset,
+      0 0 12px rgba(255,255,255,.4) inset,       /* miekka poswiata od krawedzi */
+      0 0 14px 3px rgba(255,255,255,.32),
+      0 0 26px 6px rgba(214,238,255,.2),
+      0 3px 9px rgba(0,0,0,.17);
+  }
+  .wheel:hover span {
+    color:#fff;
+    text-shadow:0 1px 2px rgba(0,0,0,.45), 0 0 5px rgba(255,255,255,.9), 0 0 10px rgba(200,230,255,.6);
+  }
+  .wheel:hover .center {
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.95) inset,
+      0 0 9px rgba(255,255,255,.38) inset,
+      0 0 11px 2px rgba(255,255,255,.32),
+      0 0 20px 5px rgba(214,238,255,.2),
+      0 2px 5px rgba(0,0,0,.1) inset;
+  }
+  .wheel .u { top:15px; } .wheel .d { bottom:15px; font-size:13px; }
+  .wheel .l { left:17px; font-size:13px; } .wheel .r { right:17px; font-size:13px; }
+  .center {
+    width:78px; height:78px; border-radius:50%; cursor:pointer;
+    background:linear-gradient(160deg,#f2f3f5,#dcdde2 55%,#cfd0d6);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.9) inset,
+      0 0 0 1px rgba(0,0,0,.1),
+      0 2px 5px rgba(0,0,0,.18) inset;
+    transition:transform .07s, box-shadow .3s ease;
+  }
+  .center:active { transform:scale(.97); }
+</style>
+</head>
+<body>
+<div class="ipod">
+  <div class="win"><i class="m" id="min"></i><i class="c" id="close"></i></div>
+
+  <div class="bezel"><div class="lcd">
+    <div class="bar">
+      <div class="pl" id="playicon"></div>
+      <div class="t" id="title">iPod</div>
+      <div class="batt" id="batt"><i id="battfill"></i></div><span class="bolt" id="bolt"></span>
+    </div>
+    <div class="body" id="body"></div>
+  </div></div>
+
+  <div class="wheelwrap">
+    <div class="wheel" id="wheel">
+      <span class="u">MENU</span><span class="l">⏮</span><span class="r">⏭</span><span class="d">▶❙❙</span>
+      <div class="center" id="center"></div>
+    </div>
+  </div>
+</div>
+
+<audio id="audio"></audio>
+
+<script>
+const $ = s => document.querySelector(s);
+const audio = $('#audio'), body = $('#body');
+
+let tracks = [], queue = [], qi = -1, stack = [], dlBin = null, dlDir = '';
+
+// ---------- ekrany ----------
+const MAIN = () => ({
+  title:'iPod', split:true, sel:0,
+  items:[
+    { lbl:'Muzyka',            icon:'collage',  go:() => MUSIC() },
+    { lbl:'Pobierz muzykę',    icon:'download', go:() => DOWNLOAD() },
+    { lbl:'Shuffle',           icon:'shuffle',  act:() => { if(!tracks.length) return; queue=[...tracks].sort(()=>Math.random()-.5); play(0); push(NOWPLAYING()); } },
+    { lbl:'Ustawienia',        icon:'gear',     go:() => SETTINGS() },
+    { lbl:'Teraz odtwarzane',  icon:'play',     act:() => { if(qi>=0) push(NOWPLAYING()); } },
+  ],
+});
+
+// przelaczane w Ustawieniach; zapamietane miedzy uruchomieniami
+let coverView = localStorage.getItem('view') === 'cover';
+let npTheme   = localStorage.getItem('nptheme') || 'classic';
+
+const MUSIC = () => {
+  if (!tracks.length)
+    return { title:'Muzyka', split:true, sel:0,
+             items:[{ lbl:'Brak utworów', leaf:true, act:()=>{} }] };
+  return coverView ? COVERS() : {
+    title:'Muzyka', split:true, sel:0,
+    items: tracks.map((t,i) => ({ lbl:t.title, sub:t.artist, art:t.art, leaf:true,
+      act:() => { queue=[...tracks]; play(i); push(NOWPLAYING()); } })),
+  };
+};
+
+const SETTINGS = () => ({
+  title:'Ustawienia', split:true, sel:0,
+  items:[
+    { lbl:`Widok: ${coverView ? 'Cover Flow' : 'Lista'}`, icon:'collage', leaf:true,
+      act:() => { coverView = !coverView; localStorage.setItem('view', coverView ? 'cover' : 'list');
+                  stack[stack.length-1] = SETTINGS(); render(); } },
+    { lbl:`Ekran odtwarzania: ${(NP_THEMES.find(t => t[0] === npTheme) || NP_THEMES[0])[1]}`, icon:'play',
+      go:() => NPSCREEN() },
+    { lbl:'Usuń utwór',           icon:'trash',   go:() => REMOVE() },
+    { lbl:'Otwórz folder Muzyka', icon:'folder',  leaf:true, act:() => ipod.revealMusic() },
+    { lbl:'Odśwież bibliotekę',   icon:'refresh', leaf:true, act:async () => { await load(); render(); } },
+    { lbl:'O programie',          icon:'info',    go:() => ({ title:'O programie', sel:0, items:[
+        { lbl:`Utworów: ${tracks.length}`, leaf:true, act:()=>{} },
+        { lbl:`Pobieranie: ${dlBin ? 'gotowe' : 'niedostępne'}`, leaf:true, act:()=>{} },
+        { lbl:'iPod Classic — Electron', leaf:true, act:()=>{} },
+      ]}) },
+  ],
+});
+
+// Cover Flow - okladki ustawione w harmonijke, srodkowa na wprost.
+const COVERS = () => ({
+  title:'Muzyka', sel:0, cf:true,
+  items: tracks.map((t, i) => ({
+    lbl:t.title, sub:t.artist, art:t.art,
+    act:() => { queue = [...tracks]; play(i); push(NOWPLAYING()); },
+  })),
+});
+
+// Usuwanie z poziomu aplikacji - dwa kroki, zeby nie skasowac czegos jednym kliknieciem.
+const REMOVE = () => ({
+  title:'Usuń utwór', split:true, sel:0,
+  items: tracks.length
+    ? tracks.map(t => ({ lbl:t.title, sub:t.artist, art:t.art, go:() => CONFIRM(t) }))
+    : [{ lbl:'Brak utworów', icon:'trash', leaf:true, act:()=>{} }],
+});
+
+const CONFIRM = (t) => {
+  const s = {
+    title:'Na pewno?', split:true, sel:1,        // kursor domyslnie na "Nie"
+    items:[
+      { lbl:'Tak, usuń', icon:'trash', sub:t.title, leaf:true, act: async () => {
+          const r = await ipod.deleteTrack(t.file);
+          if (!r.ok) { s.items[0].lbl = '✗ ' + r.error; return render(); }
+          // jesli akurat gral - zatrzymaj, bo plik zniknal spod niego
+          if (queue[qi] && queue[qi].file === t.file) {
+            audio.pause(); audio.src = ''; qi = -1; queue = [];
+          }
+          await load();
+          stack.pop();                            // wyjdz z potwierdzenia
+          stack[stack.length - 1] = REMOVE();      // i odswiez liste
+          render();
+        } },
+      { lbl:'Nie', sub:t.title, leaf:true, act:() => pop() },
+    ],
+  };
+  return s;
+};
+
+const NP_THEMES = [
+  ['classic',  'Klasyczny'],
+  ['cover',    'Pełna okładka'],
+  ['flow',     'Cover Flow'],
+  ['vinyl',    'Winyl'],
+  ['dolphins', 'Delfiny'],
+  ['race',     'Wyścigówka'],
+  ['gauges',   'Wskazówki'],
+  ['dj',       'Gramofony'],
+  ['wave',     'Fale'],
+  ['shuffle',  'Losowy (co utwór)'],
+];
+
+// 'shuffle' losuje jeden z konkretnych ekranow przy kazdej zmianie utworu
+const npStyle = () => npTheme === 'shuffle' ? (shuffled || 'classic') : npTheme;
+let shuffled = null;
+const reshuffle = () => {
+  const pool = NP_THEMES.slice(1, -1).map(t => t[0]).filter(t => t !== shuffled);
+  shuffled = pool[Math.floor(Math.random() * pool.length)];
+};
+
+// po zmianie motywu odswieza tylko ten ekran, ktory akurat widac
+function refresh() {
+  const s = cur();
+  if (s.np) return renderNP();
+  if (s.title === 'Ekran odtwarzania') stack[stack.length-1] = NPSCREEN();
+  else if (s.title === 'Ustawienia')   stack[stack.length-1] = SETTINGS();
+  render();
+}
+
+const NPSCREEN = () => ({
+  title:'Ekran odtwarzania', split:true,
+  sel: Math.max(0, NP_THEMES.findIndex(t => t[0] === npTheme)),
+  items: NP_THEMES.map(([id, lbl]) => ({
+    lbl:(npTheme === id ? '✓ ' : '') + lbl, icon:'play', leaf:true,
+    act:() => { npTheme = id; localStorage.setItem('nptheme', id);
+                if (id === 'shuffle') reshuffle();
+                stack[stack.length-1] = NPSCREEN(); render(); },
+  })),
+});
+
+const NOWPLAYING = () => ({ title:'Teraz odtwarzane', np:true });
+const DOWNLOAD   = () => ({ title:'Pobierz', dl:true });
+
+// ---------- nawigacja ----------
+const cur = () => stack[stack.length-1];
+const push = s => { stack.push(s); render(); };
+const pop  = () => { if(stack.length>1){ stack.pop(); render(); } };
+
+function scroll(d) {
+  const s = cur();
+  if (s.np) return setVolume(d);   // na "Teraz odtwarzane" kolo reguluje glosnosc, jak w oryginale
+  if (!s.items) return;
+  s.sel = Math.max(0, Math.min(s.items.length-1, s.sel + d));
+  if (s.cf) return layoutCF(s);          // same przesuniecie, bez przebudowy
+  render();
+  body.querySelector('.row.sel')?.scrollIntoView({ block:'nearest' });
+}
+
+function select() {
+  const s = cur();
+  if (!s.items) return;
+  const it = s.items[s.sel];
+  if (it.go) push(it.go()); else it.act?.();
+}
+
+// ---------- odtwarzanie ----------
+function play(i) {
+  if (!queue.length) return;
+  qi = (i + queue.length) % queue.length;
+  if (npTheme === 'shuffle') reshuffle();
+  audio.src = queue[qi].file;
+  audio.play().catch(()=>{});
+  // bez tego ⏭/⏮ zmienialy dzwiek, ale ekran pokazywal dalej stary utwor
+  if (cur()?.np) renderNP();
+}
+const toggle = () => { if (qi < 0) return; audio.paused ? audio.play().catch(()=>{}) : audio.pause(); };
+const next = () => play(qi + 1);
+const prev = () => { if (audio.currentTime > 3) audio.currentTime = 0; else play(qi - 1); };
+
+// koniec listy = stop, jak w oryginale (przycisk ⏭ nadal zawija)
+audio.addEventListener('ended', () => { if (qi < queue.length - 1) next(); else render(); });
+audio.addEventListener('timeupdate', () => { if (cur()?.np) paintBar(); });
+audio.addEventListener('play',  () => { $('#playicon').textContent = '▶'; spin(); });
+audio.addEventListener('pause', () => { $('#playicon').textContent = '❙❙'; spin(); });
+const spin = () => body.querySelector('.disc')?.classList.toggle('pz', audio.paused);
+
+const fmt = s => isFinite(s) ? Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0') : '0:00';
+
+// Ten sam pasek pokazuje postep albo glosnosc - po 1.5s wraca do postepu,
+// tak jak robil to oryginal.
+let volMode = false, volTimer = null;
+
+function setVolume(d) {
+  audio.volume = Math.min(1, Math.max(0, audio.volume + d * 0.05));
+  volMode = true;
+  clearTimeout(volTimer);
+  volTimer = setTimeout(() => { volMode = false; paintBar(); }, 1500);
+  paintBar();
+}
+
+function paintBar() {
+  const f = $('#pfill'); if (!f) return;
+  if (volMode) {
+    f.style.width = audio.volume * 100 + '%';
+    $('#pnow').textContent = 'Głośność';
+    $('#pend').textContent = Math.round(audio.volume * 100) + '%';
+  } else {
+    f.style.width = (audio.duration ? audio.currentTime/audio.duration*100 : 0) + '%';
+    $('#pnow').textContent = fmt(audio.currentTime);
+    $('#pend').textContent = '-' + fmt((audio.duration||0) - audio.currentTime);
+  }
+}
+
+// Ikonki pozycji menu. Oryginal pokazywal tu tylko okladki przy Muzyce -
+// reszta glifow to nasz dodatek, zeby nie bylo wszedzie tej samej nutki.
+const SVG = (d) => `<svg viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="2.6"
+  stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const ICON = {
+  download: SVG('<path d="M24 10v19"/><path d="M16 22l8 8 8-8"/><path d="M12 37h24"/>'),
+  shuffle:  SVG('<path d="M10 16h7l14 16h7"/><path d="M10 32h7l14-16h7"/><path d="M34 12l4 4-4 4"/><path d="M34 28l4 4-4 4"/>'),
+  // suwaki zamiast zebatki - zebatka w tej skali czytala sie jak slonce
+  gear:     SVG('<path d="M11 15h5M23 15h14M11 24h14M32 24h5M11 33h7M25 33h12"/>'
+                + '<circle cx="19.5" cy="15" r="3.4"/><circle cx="28.5" cy="24" r="3.4"/><circle cx="21.5" cy="33" r="3.4"/>'),
+  play:     SVG('<circle cx="24" cy="24" r="14"/><path d="M20.5 17.5l11 6.5-11 6.5z" fill="#fff" stroke="none"/>'),
+  folder:   SVG('<path d="M10 16h10l3.5 4.5H38V37H10z"/>'),
+  refresh:  SVG('<path d="M36 24a12 12 0 1 1-3.5-8.5"/><path d="M36 11v8h-8"/>'),
+  info:     SVG('<circle cx="24" cy="24" r="14"/><path d="M24 23v10"/><circle cx="24" cy="16.5" r="1.9" fill="#fff" stroke="none"/>'),
+  note:     SVG('<path d="M20 33V14l15-3v19"/><ellipse cx="15.5" cy="33" rx="5" ry="4.2" fill="#fff" stroke="none"/><ellipse cx="30.5" cy="30" rx="5" ry="4.2" fill="#fff" stroke="none"/>'),
+  trash:    SVG('<path d="M10 15h28"/><path d="M19 15v-4h10v4"/><path d="M14 15l2 24h16l2-24"/><path d="M21 21v12M27 21v12"/>'),
+};
+
+// okladka ustawiana przez DOM, nie przez innerHTML - nazwa pliku nie trafia do HTML
+function paintArt(el, it) {
+  if (!el) return;
+
+  if (it?.icon === 'collage') {                 // Muzyka: prawdziwe okladki, jak w oryginale
+    const arts = tracks.map(t => t.art).filter(Boolean);
+    if (arts.length >= 4) {
+      const g = document.createElement('div');
+      g.className = 'grid';
+      arts.slice(0, 4).forEach(src => {
+        const i = document.createElement('img'); i.src = src; i.alt = ''; g.appendChild(i);
+      });
+      return el.replaceChildren(g);
+    }
+    if (arts.length) return setImg(el, arts[0]);
+    return void (el.innerHTML = ICON.note);
+  }
+
+  if (it?.art) return setImg(el, it.art);
+  el.innerHTML = ICON[it?.icon] || ICON.note;
+}
+
+function setImg(el, src) {
+  const img = document.createElement('img');
+  img.src = src; img.alt = '';
+  img.onerror = () => { el.innerHTML = ICON.note; };
+  el.replaceChildren(img);
+}
+
+// ---------- render ----------
+function render() {
+  const s = cur();
+  $('#title').textContent = s.title;
+
+  if (s.np)  return renderNP();
+  if (s.dl)  return renderDL();
+  if (s.cf)  return renderCF(s);
+
+  body.className = 'body' + (s.split ? ' split' : '');
+  const list = document.createElement('div');
+  list.className = 'list';
+  s.items.forEach((it, i) => {
+    const r = document.createElement('div');
+    r.className = 'row' + (i === s.sel ? ' sel' : '');
+    r.innerHTML = `<div class="lbl"></div>` + (it.leaf ? '' : `<div class="ch">❯</div>`);
+    r.querySelector('.lbl').textContent = it.lbl;
+    r.onclick = () => { s.sel = i; select(); };
+    list.appendChild(r);
+  });
+  body.replaceChildren(list);
+
+  if (s.split) {
+    const it = s.items[s.sel] || {};
+    const p = document.createElement('div');
+    p.className = 'prev';
+    p.innerHTML = `<div class="art"></div><div class="cap"></div>`;
+    p.querySelector('.cap').textContent = it.sub || it.lbl || '';
+    paintArt(p.querySelector('.art'), it);
+    body.appendChild(p);
+  }
+}
+
+// Buduje okladki raz; przewijanie tylko je przestawia (layoutCF),
+// bo przebudowa DOM przeladowywalaby obrazki i wszystko by mrugalo.
+function renderCF(s) {
+  body.className = 'body';
+  const wrap = document.createElement('div');
+  wrap.className = 'cf';
+  s.items.forEach(it => {
+    const cv = document.createElement('div');
+    cv.className = 'cv';
+    paintArt(cv, it);
+    wrap.appendChild(cv);
+  });
+  const cap = document.createElement('div');
+  cap.className = 'cap';
+  wrap.appendChild(cap);
+  body.replaceChildren(wrap);
+  layoutCF(s);
+}
+
+const VISIBLE = 4;                        // ile okladek po kazdej stronie widac
+
+function layoutCF(s) {
+  const wrap = body.querySelector('.cf');
+  if (!wrap) return;
+  wrap.querySelectorAll('.cv').forEach((el, i) => {
+    const d = i - s.sel, ad = Math.abs(d), sg = Math.sign(d);
+    if (ad > VISIBLE) { el.style.opacity = '0'; return; }
+    const x  = d === 0 ? 0 : sg * (46 + (ad - 1) * 20);
+    const z  = d === 0 ? 60 : -ad * 30;
+    const ry = d === 0 ? 0 : -sg * 62;     // boczne odchylone do srodka
+    el.style.transform = `translateX(${x}px) translateZ(${z}px) rotateY(${ry}deg) scale(${d === 0 ? 1.1 : .88})`;
+    el.style.zIndex    = String(50 - ad);
+    el.style.opacity   = String(Math.max(.25, 1 - ad * .18));
+  });
+  const it = s.items[s.sel], cap = wrap.querySelector('.cap');
+  if (cap && it) {
+    cap.textContent = it.lbl;
+    const sm = document.createElement('small');
+    sm.textContent = it.sub || '';
+    cap.appendChild(sm);
+  }
+}
+
+function renderNP() {
+  const t = queue[qi];
+  const th = npStyle();
+  const ov = th !== 'classic';                     // poza klasycznym opis lezy na obrazie
+  body.className = 'body';
+  body.innerHTML = `<div class="np ${th}${ov ? ' ov' : ''}">
+      <div class="stage st-${th}"></div>
+      <div class="foot">
+        <div class="ti"></div><div class="ar"></div>
+        <div class="nof">${qi+1} z ${queue.length}</div>
+        <div class="prog">
+          <div class="track"><i id="pfill"></i></div>
+          <div class="times"><span id="pnow">0:00</span><span id="pend">0:00</span></div>
+        </div>
+      </div>
+    </div>`;
+  npArt = null;                                   // okladka dla scen na canvasie
+  if (t?.art) { npArt = new Image(); npArt.src = t.art; }
+  body.querySelector('.ti').textContent = t ? t.title  : 'Nic nie gra';
+  body.querySelector('.ar').textContent = t ? t.artist : '';
+  (STAGE[th] || STAGE.classic)(body.querySelector('.stage'), t);
+  paintBar();
+}
+
+// ---------- ekrany odtwarzania ----------
+let npArt = null, flowWrap = null, flowFor = null;
+
+// Ta sama harmonijka co w Muzyce, tylko wysrodkowana na graja[cym utworze.
+function layoutFlow(wrap, idx) {
+  wrap.querySelectorAll('.cv').forEach((el2, i) => {
+    const d = i - idx, ad = Math.abs(d), sg = Math.sign(d);
+    if (ad > VISIBLE) { el2.style.opacity = '0'; return; }
+    const x  = d === 0 ? 0 : sg * (48 + (ad - 1) * 21);
+    const z  = d === 0 ? 60 : -ad * 30;
+    const ry = d === 0 ? 0 : -sg * 62;
+    el2.style.transform = `translateX(${x}px) translateZ(${z}px) rotateY(${ry}deg) scale(${d === 0 ? 1.1 : .88})`;
+    el2.style.zIndex    = String(50 - ad);
+    el2.style.opacity   = String(Math.max(.25, 1 - ad * .18));
+  });
+}
+const el = (cls, tag='div') => { const e = document.createElement(tag); e.className = cls; return e; };
+
+const STAGE = {
+  classic: (st, t) => { const a = el('art'); paintArt(a, t); st.appendChild(a); },
+
+  cover: (st, t) => {
+    const bg = el('bg');
+    if (t?.art) bg.style.backgroundImage = `url("${t.art.replace(/"/g, '%22')}")`;
+    const a = el('art'); paintArt(a, t);
+    st.append(bg, a);
+  },
+
+  // Kafle trzymamy w jednym wezle i tylko go przepinamy - dzieki temu przy
+  // zmianie utworu okladki nie laduja sie od nowa i harmonijka plynnie jedzie.
+  flow: (st) => {
+    // Przebudowa musi isc za TOZSAMOSCIA kolejki, nie za jej dlugoscia: po
+    // Shuffle lista ma tyle samo pozycji, ale w innej kolejnosci - stare kafle
+    // zostawaly i pod grajacym utworem wisiala cudza okladka.
+    if (flowFor !== queue) {
+      flowWrap = el('cf');
+      queue.forEach(tr => { const cv = el('cv'); paintArt(cv, tr); flowWrap.appendChild(cv); });
+      flowFor = queue;
+      st.appendChild(flowWrap);
+      layoutFlow(flowWrap, qi);            // swieza harmonijka - bez animacji
+      return;
+    }
+    st.appendChild(flowWrap);
+    void flowWrap.offsetWidth;             // wymuszony reflow: przegladarka
+    requestAnimationFrame(() =>            // zapamietuje stare pozycje kafli,
+      layoutFlow(flowWrap, qi));           // wiec nowe dojezdzaja plynnie
+  },
+
+  vinyl: (st, t) => {
+    const d = el('disc' + (audio.paused ? ' pz' : ''));
+    const a = el('art'); paintArt(a, t);
+    d.appendChild(a); st.appendChild(d);
+  },
+
+  dolphins: (st) => canvasLoop(st, drawSea, true),
+  race:     (st) => canvasLoop(st, drawRace, true),
+  gauges:   (st) => canvasLoop(st, drawGauges),
+  dj:       (st) => canvasLoop(st, drawDJ),
+
+  wave: (st) => canvasLoop(st, drawWave),
+};
+
+// Sylwetka delfina (butlonos) w ukladzie 70x40, nosem w prawo - rysowana
+// na canvasie, wiec te same wspolrzedne sluza tez do oka i pyszczka.
+const DOLPHIN = new Path2D(
+    'M70 26C64 24 61 22.5 58 21C56 16 54 14.5 50 14'      // dziob i melon
+  + 'C45 12.5 40 11.5 35 11C32 7 28 4.5 25 4.5'           // grzbiet i pletwa
+  + 'C25 7.5 23.5 10.5 22 13C18 15 14 17 10 19'                 // spadek do ogona
+  + 'L0 12C3.5 17 4 21 3 25C2.5 27 1.5 29 0 31'           // pletwa ogonowa
+  + 'L10 24C15 27.5 21 29.5 27 30'                        // brzuch
+  + 'L23 38C29 36.5 33 33 35 29.5'                        // pletwa piersiowa
+  + 'C41 29 47 28 52 27C58 26.6 64 26.2 70 26Z');
+
+// Petla rysowania konczy sie sama, gdy canvas zniknie z DOM (zmiana ekranu).
+function canvasLoop(st, draw, lofi) {
+  const c = document.createElement('canvas');
+  if (lofi) c.className = 'lofi';
+  st.appendChild(c);
+  const k = lofi ? 1 : 2;                    // lo-fi = grubszy piksel, jak w aucie
+  c.width = c.clientWidth * k; c.height = c.clientHeight * k;
+  const g = c.getContext('2d', { willReadFrequently: !!lofi });
+  wireAnalyser();
+  (function tick() {
+    if (!c.isConnected) return;
+    draw(g, c);
+    if (lofi) dither(g, c);
+    requestAnimationFrame(tick);
+  })();
+}
+
+// Raster 4x4 (Bayer) - to on robi z gradientu te kropki, po ktorych ekran
+// wyglada jak zdjecie z wyswietlacza Pioneera, a nie jak wektor.
+const BAYER = [0,8,2,10, 12,4,14,6, 3,11,1,9, 15,7,13,5];
+
+function dither(g, c) {
+  const img = g.getImageData(0, 0, c.width, c.height), d = img.data, W = c.width;
+  for (let i = 0, n = d.length; i < n; i += 4) {
+    const px = (i >> 2) % W, py = (i >> 2) / W | 0;
+    const lum = (d[i] * .3 + d[i+1] * .59 + d[i+2] * .11) * (d[i+3] / 255);
+    if (lum > (BAYER[(py & 3) * 4 + (px & 3)] + .5) * 15.5) {
+      d[i] = 130; d[i+1] = 240; d[i+2] = 255;
+    } else {
+      d[i] = 4; d[i+1] = 22; d[i+2] = 36;
+    }
+    d[i+3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+}
+
+const BANDS = 22;
+
+// Wygladzona energia utworu - po niej przyspiesza i zwalnia cala animacja.
+let energy = 0;
+function songEnergy() {
+  const lv = levels();
+  const now = lv.reduce((a, b) => a + b, 0) / lv.length;
+  energy += (now - energy) * .06;
+  return energy;
+}
+
+// Poziomy pasm: z analizatora, a jak sie nie da - z animacji (patrz wireAnalyser).
+function levels() {
+  const on = !audio.paused && qi >= 0;
+  if (freq) {
+    analyser.getByteFrequencyData(freq);
+    const per = Math.floor(freq.length * 0.72 / BANDS);
+    return Array.from({length:BANDS}, (_, i) => {
+      let m = 0;
+      for (let j = 0; j < per; j++) m = Math.max(m, freq[i*per + j]);
+      return m / 255;
+    });
+  }
+  const t = performance.now() / 1000;
+  return Array.from({length:BANDS}, (_, i) => on
+    ? Math.max(.06, (Math.sin(t*(2.1 + i%5*.63) + i) * .5 + .5) * (1 - i/BANDS*.5))
+    : .04);
+}
+
+function waveform(n) {
+  if (freq) {
+    const d = new Uint8Array(analyser.fftSize);
+    analyser.getByteTimeDomainData(d);
+    return Array.from({length:n}, (_, i) => d[Math.floor(i * d.length / n)] / 128 - 1);
+  }
+  const t = performance.now() / 2400, on = !audio.paused && qi >= 0;
+  return Array.from({length:n}, (_, i) => on ? Math.sin(i/5 + t) * .5 * Math.sin(i/13 - t*.7) : 0);
+}
+
+// Segmentowy wskaznik - klocki z przerwami, ciemne segmenty widac tak jak
+// na prawdziwej matrycy. Czapeczka opada wolniej niz pasek (peak hold).
+const peaks = [];
+
+function meter(g, x0, y0, w, h, cols, segs, lv) {
+  const cw = w / cols, ch = h / segs;
+  for (let i = 0; i < cols; i++) {
+    const v = lv[Math.floor(i * lv.length / cols)];
+    const lit = Math.round(v * segs);
+    peaks[i] = Math.max(lit, (peaks[i] || 0) - 0.14);
+    for (let j = 0; j < segs; j++) {
+      const on = j < lit, cap = Math.floor(peaks[i]) === j && !on;
+      g.fillStyle = on ? '#6fe6ff' : cap ? '#bff4ff' : 'rgba(110,200,235,.13)';
+      g.fillRect(x0 + i*cw + cw*.12, y0 + h - (j+1)*ch + ch*.16, cw*.76, ch*.68);
+    }
+  }
+}
+
+// Wersja kolorowa - zielony u dolu, czerwony przy szczycie, jak na sprzecie hi-fi.
+const peaksC = [];
+
+function meterColor(g, x0, y0, w, h, cols, segs, lv) {
+  const cw = w / cols, ch = h / segs;
+  for (let i = 0; i < cols; i++) {
+    const v = lv[Math.floor(i * lv.length / cols)];
+    const lit = Math.round(v * segs);
+    peaksC[i] = Math.max(lit, (peaksC[i] || 0) - 0.14);
+    for (let j = 0; j < segs; j++) {
+      const on = j < lit, cap = Math.floor(peaksC[i]) === j && !on;
+      const hue = 145 - (j / (segs - 1)) * 145;
+      g.fillStyle = on  ? `hsl(${hue} 92% 58%)`
+                  : cap ? '#ffffff'
+                        : `hsla(${hue}, 55%, 45%, .16)`;
+      g.fillRect(x0 + i*cw + cw*.12, y0 + h - (j+1)*ch + ch*.16, cw*.76, ch*.68);
+    }
+  }
+}
+
+// ---------- delfiny: kilka scenek, przelaczaja sie po kolei jak w Pioneerze ----------
+
+// Cieniowanie zamiast plaskiej sylwetki: dopiero z gradientow raster robi
+// te kropki, po ktorych scenka wyglada jak zdjecie na wyswietlaczu.
+function paintDolphin(g, alpha) {
+  const body = g.createLinearGradient(0, 2, 0, 38);
+  body.addColorStop(0,   `rgba(16,60,92,${alpha})`);      // ciemny grzbiet
+  body.addColorStop(.3,  `rgba(120,196,228,${alpha})`);
+  body.addColorStop(.58, `rgba(214,244,255,${alpha})`);   // jasny bok
+  body.addColorStop(1,   `rgba(88,156,196,${alpha})`);    // brzuch w cieniu
+  g.fillStyle = body; g.fill(DOLPHIN);
+
+  g.save(); g.clip(DOLPHIN);
+  const hi = g.createRadialGradient(46, 19, 1, 46, 19, 30);
+  hi.addColorStop(0, `rgba(255,255,255,${alpha * .28})`); // polysk na boku
+  hi.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = hi; g.fillRect(0, 0, 72, 40);
+
+  g.fillStyle = `rgba(14,58,88,${alpha * .5})`;           // ogon i pletwy w cieniu
+  g.fillRect(0, 8, 11, 26);
+  g.beginPath(); g.moveTo(22, 38); g.lineTo(36, 29); g.lineTo(27, 29.6); g.closePath(); g.fill();
+  g.restore();
+
+  g.strokeStyle = `rgba(235,252,255,${alpha * .9})`; g.lineWidth = 1.1;
+  g.stroke(DOLPHIN);                                                  // rozswietlony kontur
+
+  g.fillStyle = `rgba(6,28,44,${alpha})`;
+  g.beginPath(); g.arc(53, 19, 1.2, 0, 7); g.fill();                  // oko
+  g.beginPath(); g.ellipse(45, 12.2, 1.4, .8, -.3, 0, 7); g.fill();   // nozdrze
+  g.strokeStyle = `rgba(6,28,44,${alpha * .75})`; g.lineWidth = 1.2;
+  g.beginPath(); g.moveTo(57, 23.4); g.lineTo(69, 26); g.stroke();    // pyszczek
+}
+
+function dolphinAt(g, x, y, size, rot, alpha, wob, flip = 1) {
+  const k = size / 70;
+  g.save();
+  g.translate(x, y);
+  g.rotate(rot + wob * .07 * flip);        // lekkie kolysanie - bez tego plynie jak karton
+  g.scale(flip * k, k * (1 + wob * .07));
+  g.transform(1, 0, wob * .06, 1, 0, 0);   // fala przechodzaca wzdluz ciala
+  g.translate(-35, -20);
+  paintDolphin(g, alpha);
+  g.restore();
+}
+
+// Kierunek liczymy z toru, wiec delfin zawsze plynie tam, gdzie leci.
+function aim(fn, u, damp = 1, du = .004) {
+  const [x, y] = fn(u), [x2, y2] = fn(u + du);
+  return [x, y, Math.atan2((y2 - y) * damp, x2 - x)];
+}
+
+function seaBackdrop(g, W, H, t, surf) {
+  if (surf > 0) {
+    const sky = g.createLinearGradient(0, 0, 0, surf);
+    sky.addColorStop(0, '#03101f'); sky.addColorStop(1, '#4d90b4');   // jasniej ku horyzontowi
+    g.fillStyle = sky; g.fillRect(-W, -H, 3*W, surf + H);
+  }
+  const water = g.createLinearGradient(0, Math.max(0, surf), 0, H);
+  water.addColorStop(0, '#3f8dae'); water.addColorStop(.12, '#124f70');
+  water.addColorStop(.45, '#071f31'); water.addColorStop(1, '#03101c');
+  g.fillStyle = water; g.fillRect(-W, Math.max(0, surf), 3*W, 2*H);
+
+  // kaustyka - jasne zawijasy tuz pod powierzchnia
+  g.strokeStyle = 'rgba(225,250,255,.22)'; g.lineWidth = H * .012;
+  for (let k = 0; k < 4; k++) {
+    g.beginPath();
+    for (let x = 0; x <= W; x += W/26) {
+      const y = Math.max(0, surf) + H*.04 + k*H*.045
+              + Math.sin(x/W*13 + t*1.6 + k*1.7) * H*.022;
+      x ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.stroke();
+  }
+}
+
+function seaSurface(g, W, H, t, y0) {
+  const waveY = x => y0 + Math.sin(x/W*24 + t*2.2) * H*.025 + Math.sin(x/W*9 - t*1.3) * H*.012;
+  g.lineWidth = W * .007; g.strokeStyle = 'rgba(150,235,255,.65)';
+  g.beginPath();
+  for (let x = 0; x <= W; x += W/70) { const y = waveY(x); x ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke();
+  g.lineWidth = W * .004; g.strokeStyle = 'rgba(150,235,255,.2)';
+  g.beginPath();
+  for (let x = 0; x <= W; x += W/70) { const y = waveY(x) + H*.04; x ? g.lineTo(x, y) : g.moveTo(x, y); }
+  g.stroke();
+  g.fillStyle = 'rgba(220,248,255,.5)';                       // piana na grzbietach
+  for (let i = 0; i < 16; i++) {
+    const x = ((i * 61) % 100) / 100 * W;
+    g.beginPath(); g.arc(x, waveY(x) - H*.006, W*.004, 0, 7); g.fill();
+  }
+  return waveY;
+}
+
+function seaShafts(g, W, H, t, y0) {
+  for (let i = 0; i < 3; i++) {
+    const x = W * (.16 + i * .3) + Math.sin(t * .35 + i) * W * .04;
+    const w = W * (.022 + (i % 2) * .014);
+    const grd = g.createLinearGradient(0, y0, 0, H);
+    grd.addColorStop(0, 'rgba(150,230,255,.13)'); grd.addColorStop(1, 'rgba(150,230,255,0)');
+    g.fillStyle = grd;
+    g.beginPath();
+    g.moveTo(x, y0); g.lineTo(x + w, y0);
+    g.lineTo(x + w * 2.2 + W * .05, H); g.lineTo(x + w * 1.4, H);
+    g.closePath(); g.fill();
+  }
+}
+
+function seaBubbles(g, W, H, t, n, spd) {
+  spd *= 1.7;                                    // szybciej ida do gory
+  g.fillStyle = 'rgba(180,235,255,.4)';
+  for (let i = 0; i < n; i++) {
+    const x = ((i * 97) % 100) / 100 * W + Math.sin(t + i) * W * .01;
+    const y = H - ((t * (26 + i*8) * spd + i * 47) % (H * 1.05));
+    g.beginPath(); g.arc(x, y, W * (.003 + (i % 3) * .002), 0, 7); g.fill();
+  }
+}
+
+function seaFish(g, W, H, t, y0) {
+  g.fillStyle = 'rgba(125,232,255,.24)';
+  for (let i = 0; i < 12; i++) {
+    const fx = ((t * (.09 + (i % 4) * .02) + i * .137) % 1.1 - .05) * W;
+    const fy = y0 + H * ((i % 6) * .05) + Math.sin(t * 2 + i) * H * .012;
+    const fs = W * .008;
+    g.beginPath();
+    g.moveTo(fx + fs, fy); g.lineTo(fx - fs, fy - fs * .55); g.lineTo(fx - fs, fy + fs * .55);
+    g.closePath(); g.fill();
+  }
+}
+
+function splash(g, x, y, p, size) {
+  g.fillStyle = `rgba(225,250,255,${p * .85})`;
+  for (let j = 0; j < 10; j++) {
+    const a = -Math.PI * (.12 + j * .076), r = size * (.2 + (1 - p) * .95);
+    g.beginPath();
+    g.arc(x + Math.cos(a) * r, y + Math.sin(a) * r * .75, size * .014 * (1 - j * .06), 0, 7);
+    g.fill();
+  }
+}
+
+// --- scenka 1: wielki wyskok tuz przed obiektywem ---
+function sceneBreach(g, W, H, t) {
+  const surf = H * .38;
+  seaBackdrop(g, W, H, t, surf);
+  seaShafts(g, W, H, t, surf);
+  const waveY = seaSurface(g, W, H, t, surf);
+  seaBubbles(g, W, H, t, 9, 1);
+  const P = 3.4, u = (t % P) / P;
+  const path = q => {
+    const leap = Math.max(0, Math.sin((q - .18) / .5 * Math.PI));
+    return [(q * 1.25 - .13) * W, H * .58 - leap * (H * .58 - surf + H * .28)];
+  };
+  const [bx, by, brot] = aim(q => path((q + .55) % 1), u, .7);   // kolega z tylu
+  dolphinAt(g, bx, by, W * .24, brot, .7, Math.sin(u * 30));
+  const [cx2, cy2, crot] = aim(q => [                            // trzeci, pod tafla
+    ((q * 1.1 + .35) % 1.1 - .05) * W,
+    H * .5 + Math.sin(q * 9) * H * .04,
+  ], u, .6);
+  dolphinAt(g, cx2, cy2, W * .17, crot, .5, Math.sin(u * 36));
+
+  const [x, y, rot] = aim(path, u, .7);
+  seaFocus = [x, y];
+  dolphinAt(g, x, y, W * .38, rot, 1, Math.sin(u * 34));
+
+  if (u > .2 && u < .66) {                       // woda scieka z ciala w locie
+    g.fillStyle = 'rgba(225,250,255,.5)';
+    for (let j = 0; j < 8; j++) {
+      const q = (u * 7 + j * .13) % 1;
+      g.beginPath();
+      g.arc(x - W*.05 + j*W*.012, y + q * H*.12, W*.005 * (1 - q), 0, 7);
+      g.fill();
+    }
+  }
+
+  const hit = Math.min(Math.abs(u - .18), Math.abs(u - .68));
+  if (hit < .05) {
+    const p = 1 - hit / .05;
+    splash(g, x, waveY(x), p, W * .5);
+    g.fillStyle = `rgba(235,252,255,${p * .55})`;               // pioropusz wody
+    for (let j = 0; j < 14; j++) {
+      const a = -Math.PI * (.2 + j * .045), r = W * (.06 + (1 - p) * .4);
+      g.beginPath();
+      g.arc(x + Math.cos(a) * r * (.6 + (j % 3) * .3),
+            waveY(x) + Math.sin(a) * r, W * .008 * (1 - j * .05), 0, 7);
+      g.fill();
+    }
+  }
+}
+
+// --- scenka 2: cala lawica sunie pod tafla ---
+const POD = [
+  { y:.40, sz:.22, sp:.31, off:.00, a:1,   leap:1 },
+  { y:.52, sz:.16, sp:.41, off:.34, a:.85, leap:1 },
+  { y:.60, sz:.12, sp:.52, off:.62, a:.6,  leap:0 },
+  { y:.35, sz:.14, sp:.37, off:.52, a:.72, leap:1 },
+  { y:.46, sz:.10, sp:.60, off:.18, a:.5,  leap:0 },
+];
+
+function scenePod(g, W, H, t) {
+  const surf = H * .22;
+  seaBackdrop(g, W, H, t, surf);
+  seaShafts(g, W, H, t, surf);
+  const waveY = seaSurface(g, W, H, t, surf);
+  seaFish(g, W, H, t, H * .3);
+  seaBubbles(g, W, H, t, 12, 1.3);
+  POD.forEach((d, i) => {
+    const path = q => {
+      const lift = d.leap ? Math.max(0, Math.sin((q - .28) / .44 * Math.PI)) : 0;
+      return [q * (W * 1.3) - W * .2,
+              H*d.y + Math.sin(q*11 + d.off*9) * H*.03 - lift * (H*d.y - surf + H*.13)];
+    };
+    const u = (t * d.sp + d.off) % 1;
+    const [x, y, rot] = aim(path, u, .5);
+    if (!i) seaFocus = [x, y];
+    dolphinAt(g, x, y, W * d.sz, rot, d.a, Math.sin(u * 26 + i));
+    const hit = Math.min(Math.abs(u - .28), Math.abs(u - .72));
+    if (d.leap && hit < .045) splash(g, x, waveY(x), 1 - hit / .045, W * d.sz);
+  });
+}
+
+// --- scenka 3: glebina, dwa delfiny krecą osemki ---
+function sceneDeep(g, W, H, t) {
+  seaBackdrop(g, W, H, t, -1);
+  seaShafts(g, W, H, t, 0);
+  seaBubbles(g, W, H, t, 16, 1.8);
+
+  g.strokeStyle = 'rgba(110,215,255,.3)'; g.lineWidth = W * .006;   // wodorosty przy dnie
+  for (let i = 0; i < 7; i++) {
+    const x = W * (.06 + i * .15);
+    g.beginPath(); g.moveTo(x, H);
+    for (let k = 1; k <= 4; k++) {
+      g.lineTo(x + Math.sin(t * 1.1 + i + k) * W * .02 * k, H - k * H * .06);
+    }
+    g.stroke();
+  }
+
+  [0, 1, 2].forEach(i => {
+    const path = q => [
+      W * (.5 + .32 * Math.cos(q * 2 * Math.PI + i * 2.1)),
+      H * (.4 + .22 * Math.sin(q * 4 * Math.PI + i * 1.4)),
+    ];
+    const u = (t * (i ? .22 : .17) + i * .4) % 1;
+    const [x, y, rot] = aim(path, u, 1);
+    if (!i) seaFocus = [x, y];
+    dolphinAt(g, x, y, W * [.3, .21, .15][i], rot, [1, .75, .5][i], Math.sin(u * 40 + i));
+  });
+  seaFish(g, W, H, t, H * .12);
+}
+
+// --- scenka 4: duet wyskakuje w lustrzanym odbiciu ---
+function sceneTwins(g, W, H, t) {
+  const surf = H * .42;
+  seaBackdrop(g, W, H, t, surf);
+  seaShafts(g, W, H, t, surf);
+  const waveY = seaSurface(g, W, H, t, surf);
+  seaBubbles(g, W, H, t, 8, 1);
+  const P = 3.2, u = (t % P) / P;
+  [1, -1].forEach(dir => {
+    const path = q => {
+      const leap = Math.max(0, Math.sin((q - .15) / .55 * Math.PI));
+      const x = W * .5 + dir * (q * 1.3 - .25) * W * .62;
+      return [x, H * .56 - leap * (H * .56 - surf + H * .26)];
+    };
+    const [x, y, rot] = aim(path, u, .7);
+    // przy lustrzanym odbiciu kat to rot+PI, nie PI-rot - inaczej delfin
+    // wznosi sie, kiedy powinien opadac
+    if (dir > 0) seaFocus = [x, y];
+    dolphinAt(g, x, y, W * .3, dir > 0 ? rot : rot + Math.PI, 1, Math.sin(u * 26), dir);
+    const hit = Math.min(Math.abs(u - .15), Math.abs(u - .7));
+    if (hit < .045) splash(g, x, waveY(x), 1 - hit / .045, W * .3);
+  });
+}
+
+const SEA_SCENES = [sceneBreach, scenePod, sceneDeep, sceneTwins];
+const SCENE_LEN = 4.6;
+let seaStart = 0, seaIdx = 0, seaFocus = null, seaClock = 2, seaLast = 0;
+const seaSeen = [0];
+// Kamera nie tnie, tylko dojezdza - stad wrazenie plynnej jazdy.
+const SEA_CAM = { mode:0, next:0, z:1, x:0, y:0 };
+
+function drawSea(g, c) {
+  const W = c.width, H = c.height, t = performance.now() / 1000;
+  // wlasny zegar sceny - przyspiesza i zwalnia razem z utworem
+  const dt = Math.min(.05, seaLast ? t - seaLast : .016); seaLast = t;
+  seaClock += dt * (.5 + songEnergy() * 2.1);
+  if (!seaStart) seaStart = t;
+  // pusto pod koniec scenki? tniemy wczesniej. Na starcie NIE - bohater
+  // dopiero wplywa w kadr i scenka zapetlalaby sie w kolko.
+  const gone = seaFocus && (seaFocus[0] < -W * .1 || seaFocus[0] > W * 1.1);
+  if (t - seaStart > SCENE_LEN || (gone && t - seaStart > SCENE_LEN * .55)) {
+    seaStart = t;
+    seaClock += .6 + Math.random() * 1.6;      // nowa scenka zaczyna w innej fazie
+    let n = seaIdx;
+    while (seaSeen.includes(n)) n = Math.floor(Math.random() * SEA_SCENES.length);
+    seaSeen.push(n);
+    if (seaSeen.length > 2) seaSeen.shift();   // dwie ostatnie scenki poza pula
+    seaIdx = n;
+  }
+  const age = t - seaStart;
+  g.clearRect(0, 0, W, H);
+  g.shadowColor = 'rgba(90,220,255,.75)'; g.shadowBlur = W * .008;
+  g.globalAlpha = Math.min(1, age / .25, (SCENE_LEN - age) / .25);   // krotkie przenikanie
+
+  if (t > SEA_CAM.next) {
+    SEA_CAM.mode = Math.floor(Math.random() * 3);      // 0 szeroko, 1 sredni, 2 blisko
+    SEA_CAM.next = t + .9 + Math.random() * 1.1;
+  }
+  // zoom stale oddycha, wiec kadr nigdy nie stoi w miejscu
+  const tz = [1.1, 1.55, 2.15][SEA_CAM.mode] + Math.sin(t * .9) * .12;
+  let tx = W * .5, ty = H * .4;
+  if (seaFocus) {                                      // sledzimy zawsze, takze szeroko                      // trzymamy sie sceny
+    const xMin = W*.5/tz, xMax = W - W*.5/tz, yMin = H*.4/tz, yMax = H - H*.6/tz;
+    const dx = Math.sin(t * .7) * W * .04, dy = Math.cos(t * .55) * H * .03;   // lekki dryf
+    tx = xMax > xMin ? Math.min(xMax, Math.max(xMin, seaFocus[0] + dx)) : W*.5;
+    ty = yMax > yMin ? Math.min(yMax, Math.max(yMin, seaFocus[1] + dy)) : H*.4;
+  }
+  if (!SEA_CAM.x) { SEA_CAM.x = tx; SEA_CAM.y = ty; }
+  SEA_CAM.z += (tz - SEA_CAM.z) * .08;                 // dojazd, nie ciecie
+  SEA_CAM.x += (tx - SEA_CAM.x) * .22;                 // kamera wisi na delfinie
+  SEA_CAM.y += (ty - SEA_CAM.y) * .22;
+
+  g.save();
+  g.translate(W*.5, H*.4);
+  g.scale(SEA_CAM.z, SEA_CAM.z);
+  g.translate(-SEA_CAM.x, -SEA_CAM.y);
+  SEA_SCENES[seaIdx](g, W, H, seaClock);
+  g.restore();
+
+  g.globalAlpha = 1;
+  g.shadowBlur = 0;
+}
+
+// Slow mo: klatki ladują na stos i gasna, wiec fala ciagnie za soba smuge.
+const TRAIL = [];
+
+function drawWave(g, c) {
+  const W = c.width, H = c.height, N = 72;
+  TRAIL.unshift(waveform(N));
+  if (TRAIL.length > 48) TRAIL.pop();
+  g.clearRect(0, 0, W, H);
+  // start rownany do wielokrotnosci 4, inaczej petla nigdy nie doszlaby do k=0
+  for (let k = Math.floor((TRAIL.length - 1) / 4) * 4; k >= 0; k -= 4) {
+    const f = 1 - k / TRAIL.length;
+    g.beginPath();
+    TRAIL[k].forEach((v, i) => {
+      const x = i / (N-1) * W, y = H/2 + v * H * .3;
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    });
+    g.strokeStyle = k ? `rgba(90,180,240,${f * .22})` : '#a6dcff';
+    g.lineWidth = W * (k ? .006 : .011); g.lineJoin = 'round'; g.stroke();
+  }
+}
+
+// ---------- wyscigowka ----------
+// Bolid z profilu: skrzydlo tylne, kadlub, dziob, skrzydlo przednie.
+// Bolid rysowany z czesci, nie jednym obrysem: skrzydla, sidepod, halo,
+// zawieszenie i kola osobno - dopiero to wyglada jak auto, a nie jak klocek.
+// Uklad: 110x40, ziemia na y=35, osie kol w (24,26) i (84,26), promien 9.
+function paintCar(g) {
+  const paint = g.createLinearGradient(0, 2, 0, 32);
+  paint.addColorStop(0,   '#f2fcff');
+  paint.addColorStop(.34, '#8fd0ee');
+  paint.addColorStop(.72, '#3f83a9');
+  paint.addColorStop(1,   '#17415c');
+  const dark = '#071c2c';
+
+  g.fillStyle = paint;
+  g.fillRect(0, 3, 17, 2.6);            // tylne skrzydlo: gorny plat
+  g.fillRect(1.5, 7.2, 14, 2);          // drugi plat
+  g.fillRect(0, 3, 2.6, 12);            // plyta boczna
+  g.fillRect(7.5, 9, 2.5, 11);          // pylon
+
+  g.beginPath();                        // dyfuzor
+  g.moveTo(9, 27); g.lineTo(24, 27); g.lineTo(22, 32); g.lineTo(11, 32); g.closePath();
+  g.fillStyle = dark; g.fill();
+  g.fillStyle = paint; g.fillRect(9, 26.2, 15, 1.4);
+
+  g.strokeStyle = paint; g.lineWidth = 1.6;          // zawieszenie tylne
+  g.beginPath(); g.moveTo(16, 21); g.lineTo(24, 26); g.moveTo(13, 25); g.lineTo(24, 26); g.stroke();
+
+  g.beginPath();                        // kadlub: silnik -> airbox -> kokpit -> dziob
+  g.moveTo(12, 26);
+  g.lineTo(16, 19);
+  g.quadraticCurveTo(30, 16, 40, 12);
+  g.lineTo(45, 12);
+  g.quadraticCurveTo(48, 17, 56, 17.5);
+  g.quadraticCurveTo(70, 19, 86, 23);
+  g.lineTo(104, 24.6); g.lineTo(104, 27.6); g.lineTo(12, 29);
+  g.closePath();
+  g.fillStyle = paint; g.fill();
+  g.strokeStyle = '#ffffff'; g.lineWidth = 1.3; g.stroke();   // jasny kant przezyje raster
+
+  g.beginPath();                        // sidepod z wlotem
+  g.moveTo(34, 20); g.quadraticCurveTo(46, 19, 56, 21);
+  g.lineTo(56, 28); g.lineTo(34, 28); g.closePath();
+  g.fillStyle = paint; g.fill(); g.stroke();
+  g.fillStyle = dark;
+  g.beginPath(); g.ellipse(54.5, 23.5, 3.4, 2.8, 0, 0, 7); g.fill();
+  g.fillRect(40, 12, 5, 3.6);           // gardziel airboxa
+
+  g.beginPath(); g.ellipse(51, 17.6, 6.5, 2.4, 0, 0, 7); g.fill();   // kokpit
+  g.beginPath(); g.arc(50, 15.4, 2.8, 0, 7); g.fill();               // kask
+  g.fillStyle = paint;
+  g.beginPath(); g.arc(50, 15.4, 1.8, -.5, 1.5); g.fill();           // wizjer
+  g.strokeStyle = paint; g.lineWidth = 1.3;                          // halo
+  g.beginPath(); g.arc(51, 18.6, 6.4, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
+  g.beginPath(); g.moveTo(57.4, 17.6); g.lineTo(58.4, 20.4); g.stroke();
+  g.fillRect(57, 15.4, 3.4, 1.2);       // lusterko
+
+  g.fillRect(64, 23.4, 7, 1.2);         // barge boardy
+  g.fillRect(66, 25.4, 6, 1);
+
+  g.fillRect(92, 26.4, 18, 1.8);        // przednie skrzydlo: glowny plat
+  g.fillRect(95, 23.4, 15, 1.4);        // klapa
+  g.fillRect(106, 20, 2.4, 9);          // plyta boczna
+  g.beginPath(); g.moveTo(104, 24.6); g.lineTo(110, 26.4); g.lineTo(104, 27.6); g.closePath(); g.fill();
+
+  g.strokeStyle = paint; g.lineWidth = 1.6;          // zawieszenie przednie
+  g.beginPath(); g.moveTo(74, 21.5); g.lineTo(84, 26); g.moveTo(72, 25); g.lineTo(84, 26); g.stroke();
+
+  g.fillStyle = dark; g.fillRect(74, 22.2, 12, 2.2); // numer na dziobie
+}
+
+function paintWheel(g, x, y, r, ang) {
+  g.save(); g.translate(x, y);
+  const tyre = g.createRadialGradient(-r*.35, -r*.35, 1, 0, 0, r);
+  tyre.addColorStop(0, '#eafaff'); tyre.addColorStop(.72, '#5ea3c6'); tyre.addColorStop(1, '#22536f');
+  g.fillStyle = tyre; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill();
+  g.strokeStyle = '#dff6ff'; g.lineWidth = .8; g.stroke();
+
+  g.save(); g.rotate(ang);
+  g.strokeStyle = '#0a2334'; g.lineWidth = 1;        // bieznik
+  for (let i = 0; i < 8; i++) {
+    g.rotate(Math.PI / 4);
+    g.beginPath(); g.moveTo(r * .62, 0); g.lineTo(r * .95, 0); g.stroke();
+  }
+  const rim = g.createRadialGradient(0, 0, 1, 0, 0, r * .55);
+  rim.addColorStop(0, '#f2fdff'); rim.addColorStop(1, '#3d84aa');
+  g.fillStyle = rim; g.beginPath(); g.arc(0, 0, r * .55, 0, 7); g.fill();
+  g.strokeStyle = '#0a2334'; g.lineWidth = 1.3;      // szprychy
+  for (let i = 0; i < 5; i++) {
+    g.rotate(Math.PI * 2 / 5);
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(r * .5, 0); g.stroke();
+  }
+  g.restore();
+
+  g.fillStyle = 'rgba(255,150,90,.5)';               // rozgrzana tarcza
+  g.beginPath(); g.arc(0, 0, r * .3, 0, 7); g.fill();
+  g.restore();
+}
+
+// Kamera tnie kadry jak w Pioneerze: bez najazdow, twarde ciecia - czasem
+// z zegara, czasem na mocniejszym basie.
+// odczyt predkosci w rogu - jak HUD w gierce
+function raceHud(g, W, H, gas) {
+  g.shadowBlur = W * .006;
+  g.fillStyle = 'rgba(190,240,255,.85)';
+  g.font = `700 ${W*.085}px Helvetica, sans-serif`; g.textAlign = 'left';
+  g.fillStyle = '#ffffff';
+  g.fillText(String(Math.round(120 + gas * 210)).padStart(3, '0'), W*.04, H*.15);
+  g.font = `700 ${W*.045}px Helvetica, sans-serif`;
+  g.fillText('KM/H', W*.04, H*.22);
+  for (let i = 0; i < 6; i++) {
+    g.fillStyle = i < 1 + gas * 5 ? '#ffffff' : 'rgba(190,240,255,.25)';
+    g.fillRect(W*.04 + i*W*.026, H*.25, W*.019, H*.026);
+  }
+  g.shadowBlur = 0;
+}
+
+// ---------- ujecia na wprost ----------
+// Kolo widziane od czola: widac bieznik, nie felge - rowki uciekaja w dol,
+// stad wrazenie obrotu.
+function paintWheelFace(g, cx, top, w, h, roll) {
+  const r = w * .3;
+  g.beginPath(); g.roundRect(cx - w/2, top, w, h, r);
+  g.strokeStyle = '#071c2c'; g.lineWidth = 3.5; g.stroke();
+  const gr = g.createLinearGradient(cx - w/2, 0, cx + w/2, 0);
+  gr.addColorStop(0, '#12405c'); gr.addColorStop(.45, '#a9dff6'); gr.addColorStop(1, '#1b5476');
+  g.fillStyle = gr; g.fill();
+
+  g.save();
+  g.beginPath(); g.roundRect(cx - w/2, top, w, h, r); g.clip();
+  g.strokeStyle = 'rgba(7,28,44,.75)'; g.lineWidth = h * .05;
+  const step = h * .2, off = (roll * h * .04) % step;
+  for (let y = top - step + off; y < top + h + step; y += step) {
+    g.beginPath();
+    g.moveTo(cx - w/2, y);
+    g.quadraticCurveTo(cx, y + h * .06, cx + w/2, y);
+    g.stroke();
+  }
+  g.strokeStyle = 'rgba(7,28,44,.45)'; g.lineWidth = w * .07;
+  g.beginPath(); g.moveTo(cx, top); g.lineTo(cx, top + h); g.stroke();
+  g.restore();
+
+  g.beginPath(); g.roundRect(cx - w/2, top, w, h, r);
+  g.strokeStyle = '#eafaff'; g.lineWidth = 1.2; g.stroke();
+}
+
+// Uklad 100x40, ziemia na y=35.
+function paintCarFront(g, ang) {
+  const paint = g.createLinearGradient(0, 2, 0, 34);
+  paint.addColorStop(0, '#f2fcff'); paint.addColorStop(.4, '#8fd0ee');
+  paint.addColorStop(1, '#1d5375');
+  const dark = '#071c2c';
+
+  g.fillStyle = paint;
+  g.fillRect(24, 2, 52, 3);              // tylne skrzydlo zza auta
+  g.fillRect(22, 2, 3, 10); g.fillRect(75, 2, 3, 10);
+  g.fillRect(46, 7, 8, 6);               // airbox
+
+  g.strokeStyle = paint; g.lineWidth = 2.4;                   // halo
+  g.beginPath(); g.arc(50, 19, 9.5, Math.PI * 1.02, Math.PI * 1.98); g.stroke();
+  g.beginPath(); g.moveTo(50, 9.8); g.lineTo(50, 13); g.stroke();
+
+  g.fillStyle = dark;                                          // kask
+  g.beginPath(); g.arc(50, 15.5, 4.6, 0, 7); g.fill();
+  g.fillStyle = paint;
+  g.beginPath(); g.arc(50, 15.5, 3, Math.PI * .1, Math.PI * .9); g.fill();
+
+  g.fillStyle = paint;                                         // sidepody
+  g.beginPath(); g.roundRect(25, 20, 17, 11, 3); g.fill();
+  g.beginPath(); g.roundRect(58, 20, 17, 11, 3); g.fill();
+  g.fillStyle = dark;
+  g.beginPath(); g.roundRect(27, 22, 8, 6, 2); g.fill();
+  g.beginPath(); g.roundRect(65, 22, 8, 6, 2); g.fill();
+
+  g.fillStyle = paint;                                         // monokok i dziob
+  g.beginPath();
+  g.moveTo(42, 18); g.lineTo(58, 18); g.lineTo(56, 31); g.lineTo(44, 31);
+  g.closePath(); g.fill();
+  g.strokeStyle = '#ffffff'; g.lineWidth = 1.2; g.stroke();
+
+  paintWheelFace(g, 15, 17, 20, 18, ang);                      // kola
+  paintWheelFace(g, 85, 17, 20, 18, ang);
+
+  g.fillStyle = paint;                                         // przednie skrzydlo
+  g.fillRect(2, 29.5, 96, 3.2);
+  g.fillRect(8, 25.5, 84, 2);
+  g.fillRect(0, 22, 5, 11); g.fillRect(95, 22, 5, 11);
+}
+
+function paintCarRear(g, ang, t, gas, vol) {
+  const paint = g.createLinearGradient(0, 2, 0, 34);
+  paint.addColorStop(0, '#f2fcff'); paint.addColorStop(.4, '#8fd0ee');
+  paint.addColorStop(1, '#1d5375');
+  const dark = '#071c2c';
+
+  g.fillStyle = paint;
+  g.fillRect(16, 3, 68, 4);              // tylne skrzydlo
+  g.fillRect(20, 9, 60, 2.4);
+  g.fillRect(13, 3, 4, 17); g.fillRect(83, 3, 4, 17);    // plyty boczne
+  g.fillRect(48, 11, 4, 6);              // pylon
+
+  g.beginPath();                                          // nadwozie
+  g.moveTo(40, 12); g.lineTo(60, 12); g.lineTo(64, 30); g.lineTo(36, 30);
+  g.closePath(); g.fill();
+  g.strokeStyle = '#ffffff'; g.lineWidth = 1.2; g.stroke();
+
+  g.fillStyle = dark;                                     // gardziel wydechu
+  g.beginPath(); g.ellipse(50, 17, 5, 4.2, 0, 0, 7); g.fill();
+  g.strokeStyle = paint; g.lineWidth = 1.2; g.stroke();
+  g.fillStyle = '#ff6a4a';                                // swiatlo deszczowe
+  g.beginPath(); g.arc(50, 25, 2, 0, 7); g.fill();
+
+  g.fillStyle = dark;                                     // dyfuzor
+  g.beginPath(); g.roundRect(30, 27, 40, 7, 1.5); g.fill();
+  g.strokeStyle = paint; g.lineWidth = 1.4;
+  for (let i = 1; i < 6; i++) {
+    g.beginPath(); g.moveTo(30 + i * 6.6, 27); g.lineTo(30 + i * 6.6, 34); g.stroke();
+  }
+
+  paintWheelFace(g, 14, 16, 24, 19, ang);                 // szersze kola z tylu
+  paintWheelFace(g, 86, 16, 24, 19, ang);
+
+  // Ogien na samym koncu, inaczej dyfuzor i kola zaslanialy go od gory.
+  // Kazdy jezyk wychodzi doslownie z gardzieli i dopiero nizej sie rozchodzi.
+  const kick = .35 + gas * gas * 4.5;
+  const grow = .25 + vol * 1.9;                       // im mocniej gra, tym grubszy ogien
+
+  const halo = g.createRadialGradient(50, 17, 1, 50, 17 + 5 * grow, 7 + 11 * grow);
+  halo.addColorStop(0, `rgba(255,190,110,${.3 + vol * .45})`);
+  halo.addColorStop(.55, `rgba(255,130,60,${.16 + vol * .3})`);
+  halo.addColorStop(1, 'rgba(255,110,50,0)');
+  g.fillStyle = halo;                                  // miekki plaszcz ognia
+  g.beginPath();
+  g.ellipse(50, 17 + 5 * grow, 6 + 9 * grow, 8 + 15 * grow, 0, 0, 7);
+  g.fill();
+
+  for (let f = 0; f < 7; f++) {
+    const flick = .55 + Math.abs(Math.sin(t * (26 + f * 7) + f)) * .8;
+    const o = f - 3;                                  // 7 jezykow, dwa skrajne
+    const edge = Math.abs(o) > 2;                     // wchodza dopiero przy mocnym graniu
+    if (edge && vol < .28) continue;
+    const x0 = 50 + o * (1.15 + grow * .5);           // start w obrysie wydechu
+    const xEnd = 50 + o * (2.1 + grow * 1.5) + Math.sin(t * 20 + f) * .9;
+    const len = (4 + 7 * kick) * flick * (1 - Math.abs(o) * .09);
+    const wTop = 1 + grow * .7, wMid = 1.6 + grow * 2.2;
+
+    g.beginPath();
+    g.moveTo(x0 - wTop, 15.5);
+    g.bezierCurveTo(x0 - wMid, 15.5 + len * .45, xEnd - wMid * .6, 15.5 + len * .75,
+                    xEnd, 15.5 + len);
+    g.bezierCurveTo(xEnd + wMid * .6, 15.5 + len * .75, x0 + wMid, 15.5 + len * .45,
+                    x0 + wTop, 15.5);
+    g.closePath();
+    g.fillStyle = `rgba(255,${120 + flick * 60},${50 + flick * 40},${edge ? .5 + vol * .45 : .95})`;
+    g.fill();
+    g.strokeStyle = 'rgba(90,30,10,.9)'; g.lineWidth = .7; g.stroke();
+
+    g.beginPath();                                    // jasny rdzen
+    g.moveTo(x0 - wTop * .45, 15.5);
+    g.quadraticCurveTo(x0, 15.5 + len * .5, (x0 + xEnd) / 2, 15.5 + len * .68);
+    g.quadraticCurveTo(x0, 15.5 + len * .5, x0 + wTop * .45, 15.5);
+    g.closePath();
+    g.fillStyle = 'rgba(255,252,230,.95)'; g.fill();
+  }
+}
+
+// Tor uciekajacy do horyzontu - kadr z przodu i z tylu bolidu.
+function drawRaceHead(g, c, t, spd, gas, rear, vol) {
+  const W = c.width, H = c.height, hz = H * .22;
+  const sky = g.createLinearGradient(0, 0, 0, hz);
+  sky.addColorStop(0, '#04121f'); sky.addColorStop(1, '#3b7fa4');
+  g.fillStyle = sky; g.fillRect(0, 0, W, hz);
+  const asf = g.createLinearGradient(0, hz, 0, H);
+  asf.addColorStop(0, '#0e3348'); asf.addColorStop(1, '#01070d');
+  g.fillStyle = asf; g.fillRect(0, hz, W, H - hz);
+
+  const lane = u => [hz + (H * .78 - hz) * u * u, W * (.06 + .9 * u * u)];
+
+  g.strokeStyle = 'rgba(170,235,255,.65)'; g.lineWidth = W * .006;
+  [-1, 1].forEach(sgn => {
+    g.beginPath();
+    for (let u = 0; u <= 1.001; u += .05) {
+      const [yy, half] = lane(u), x = W * .5 + sgn * half;
+      u ? g.lineTo(x, yy) : g.moveTo(x, yy);
+    }
+    g.stroke();
+  });
+
+  const off = (RACE.dist * .5) % .2;                       // przerywana os
+  for (let u = off; u < 1; u += .2) {
+    const [y1, h1] = lane(u), [y2, h2] = lane(Math.min(1, u + .1));
+    g.fillStyle = `rgba(200,242,255,${.2 + u * .7})`;
+    g.beginPath();
+    g.moveTo(W*.5 - h1*.03, y1); g.lineTo(W*.5 + h1*.03, y1);
+    g.lineTo(W*.5 + h2*.03, y2); g.lineTo(W*.5 - h2*.03, y2);
+    g.closePath(); g.fill();
+  }
+
+  const po = (RACE.dist * .5) % .16;                       // slupki barierki
+  for (let u = po; u < 1; u += .16) {
+    const [yy, half] = lane(u), hgt = (H * .78 - hz) * u * .18 + H * .01;
+    g.fillStyle = `rgba(150,225,255,${.15 + u * .55})`;
+    g.fillRect(W*.5 - half - W*.012, yy - hgt, W*.012, hgt);
+    g.fillRect(W*.5 + half,          yy - hgt, W*.012, hgt);
+  }
+
+  const k = W * .0058;
+  g.save();
+  g.translate(W * .5, H * .5 + Math.sin(t * 11) * H * .004);
+  g.scale(k, k);
+  g.translate(-50, -35);
+  if (rear) paintCarRear(g, RACE.wheel, t, gas, vol); else paintCarFront(g, RACE.wheel);
+  g.restore();
+
+  raceHud(g, W, H, gas);
+  const fl = .3 - (t - CAM.flash) * 2.2;
+  if (fl > 0) { g.fillStyle = `rgba(200,240,255,${fl})`; g.fillRect(0, 0, W, H); }
+}
+
+// Kadry: bok (sx = miejsce auta na ekranie, ax = punkt zaczepienia w jego
+// ukladzie), oraz ujecia na wprost - z przodu i z tylu.
+const SHOTS = [
+  { view:'side',  z:.95, sx:.5, ax:55, y:0    },    // szeroki, auto na srodku
+  { view:'front' },                                  // na wprost z przodu
+  { view:'side',  z:1.2, sx:.5, ax:55, y:.02  },     // sylwetka
+  { view:'rear'  },                                  // na wprost z tylu
+  { view:'side',  z:1.4, sx:.5, ax:55, y:.03  },     // blizej, wciaz na srodku
+  { view:'side',  z:1.05, sx:.5, ax:55, y:-.02 },    // z dystansu
+];
+const CAM = { i:0, next:0, last:0, flash:-9 };
+// Droga i obrot kol musza byc CALKOWANE: przy zmiennej predkosci
+// iloczyn czasu i predkosci cofa sie, gdy spd spadnie (t jest duze) - stad szarpanie.
+const RACE = { last:0, dist:0, wheel:0 };
+
+function drawRace(g, c) {
+  const W = c.width, H = c.height, t = performance.now() / 1000, lv = levels();
+  const gas = lv.slice(0, 6).reduce((a, b) => a + b, 0) / 6;   // bas dodaje gazu
+  const vol = songEnergy();                                    // jak bardzo utwor sie rozkreca
+  const spd = .35 + vol * 2.6 + gas * .9;                      // tempo utworu = tempo jazdy
+  const dt = Math.min(.05, RACE.last ? t - RACE.last : .016); RACE.last = t;
+  RACE.dist += spd * dt;
+  RACE.wheel += spd * dt * 13;
+  const road = H * .5;
+  g.clearRect(0, 0, W, H);
+
+  if (t > CAM.next || (gas > .8 && t - CAM.last > 1.6)) {
+    CAM.i = (CAM.i + 1 + (Math.random() < .4 ? 1 : 0)) % SHOTS.length;
+    CAM.next = t + 2.6 + Math.random() * 2.4;
+    CAM.last = t; CAM.flash = t;
+  }
+  const cam = SHOTS[CAM.i];
+  if (cam.view !== 'side') return drawRaceHead(g, c, t, spd, gas, cam.view === 'rear', vol);
+
+  const carX = W * .3, kc = W * .52 / 110;      // bolid stoi w swiecie zawsze tu
+  g.save();
+  g.translate(W * cam.sx, road + cam.y * H);
+  g.scale(cam.z, cam.z);
+  g.translate(-(carX + cam.ax * kc), -road);
+  g.shadowColor = 'rgba(90,220,255,.8)'; g.shadowBlur = W * .006;
+
+  // --- tlo: trybuna z kibicami, maszty, palmy (kazda warstwa wolniej) ---
+  const band = (par, y, h, draw) => {
+    const off = (RACE.dist * W * par) % (W * .2);
+    for (let i = -1; i < 8; i++) draw(-off + i * W * .2, y, h, i);
+  };
+
+  g.fillStyle = 'rgba(125,225,255,.055)';                  // trybuna
+  band(.03, road - H*.115, H*.09, (x, y, h) => g.fillRect(x, y, W*.185, h));
+  g.fillStyle = 'rgba(190,240,255,.14)';                   // kibice
+  for (let i = 0; i < 44; i++) {
+    const x = ((i * 37) % 100) / 100 * W - (RACE.dist * W * .03) % W;
+    const y = road - H*.108 + ((i * 13) % 5) * H*.016;
+    g.fillRect((x + W) % W, y + Math.sin(t*5 + i) * H*.004, W*.006, H*.008);
+  }
+  g.fillStyle = 'rgba(125,225,255,.08)';                   // maszty oswietleniowe
+  band(.06, 0, 0, (x) => {
+    g.fillRect(x + W*.06, road - H*.28, W*.006, H*.17);
+    g.fillRect(x + W*.035, road - H*.3, W*.055, H*.022);
+  });
+  g.fillStyle = 'rgba(125,225,255,.07)';                   // budynki
+  band(.05, 0, 0, (x, _y, _h, i) => {
+    const bh = H * (.07 + ((i + 8) % 4) * .04);
+    g.fillRect(x, road - H*.115 - bh, W * (.04 + ((i + 8) % 3) * .02), bh);
+  });
+
+  // gorki
+  g.strokeStyle = 'rgba(125,225,255,.12)'; g.lineWidth = W * .004;
+  g.beginPath();
+  for (let x = 0; x <= W; x += W/70) {
+    const y = road - H*.1 - Math.sin(x/W*9 + RACE.dist*.5)*H*.03 - Math.sin(x/W*4 - RACE.dist*.2)*H*.02;
+    x ? g.lineTo(x, y) : g.moveTo(x, y);
+  }
+  g.stroke();
+
+  // bramka nad torem - przejezdza co jakis czas
+  const gx = W * 1.2 - ((RACE.dist * W * .5) % (W * 3.4));
+  if (gx > -W*.3 && gx < W*1.3) {
+    g.fillStyle = 'rgba(150,230,255,.22)';
+    g.fillRect(gx, road - H*.34, W*.012, H*.34);
+    g.fillRect(gx + W*.28, road - H*.34, W*.012, H*.34);
+    g.fillRect(gx, road - H*.36, W*.292, H*.035);
+    g.fillStyle = 'rgba(10,35,52,.9)';
+    for (let k = 0; k < 6; k++) g.fillRect(gx + W*.03 + k*W*.045, road - H*.353, W*.02, H*.02);
+  }
+
+  // slupki bariery + kerby przy jezdni
+  g.fillStyle = 'rgba(125,225,255,.22)';
+  const po = (RACE.dist * W * .95) % (W * .17);
+  for (let x = -po; x < W; x += W * .17) g.fillRect(x, road - H*.05, W*.008, H*.05);
+  const ko = (RACE.dist * W * .6) % (W * .08);
+  for (let x = -ko, k = 0; x < W; x += W * .04, k++) {
+    g.fillStyle = k % 2 ? 'rgba(255,150,120,.5)' : 'rgba(230,250,255,.5)';
+    g.fillRect(x, road - H*.012, W*.04, H*.012);
+  }
+
+  // kreski predkosci
+  g.fillStyle = 'rgba(125,225,255,.18)';
+  for (let i = 0; i < 9; i++) {
+    const y = road - H * (.06 + (i % 5) * .045), len = W * (.05 + (i % 3) * .05);
+    const x = W - ((RACE.dist * W * (.55 + i*.09) + i * W * .31) % (W * 1.5));
+    g.fillRect(x, y, len, H * .007);
+  }
+
+  // jezdnia i przerywana os
+  g.strokeStyle = 'rgba(125,225,255,.6)'; g.lineWidth = W * .006;
+  g.beginPath(); g.moveTo(0, road); g.lineTo(W, road); g.stroke();
+  g.fillStyle = 'rgba(125,225,255,.5)';
+  const dash = W * .1, off = (RACE.dist * W * .6) % dash;
+  for (let x = -off; x < W; x += dash) g.fillRect(x, road + H*.05, dash*.5, H*.014);
+
+  // dym i iskry spod bolidu
+  for (let i = 0; i < 18; i++) {
+    const q = (RACE.dist * 1.2 + i * .056) % 1;
+    g.fillStyle = `rgba(200,242,255,${(1 - q) * .5})`;
+    g.beginPath();
+    g.arc(carX - q*W*.42, road - H*.02 - q*H*.11, W*.008 + q*W*.035, 0, 7);
+    g.fill();
+  }
+  const sparks = 5 + Math.round(gas * 14);               // iskry spod podlogi
+  for (let i = 0; i < sparks; i++) {
+    const q = (RACE.dist * 2.6 + i * .17) % 1;
+    g.fillStyle = `rgba(255,${190 - q*90},110,${(1 - q) * (.5 + gas * .6)})`;
+    g.fillRect(carX - q*W*.22, road - H*.006 + Math.sin(i + t*20)*H*.02*q,
+               W*.008 + gas*W*.006, H*.005);
+  }
+
+  const k = kc, bob = Math.sin(t * 11) * H * .006;
+  const drawCar = (alpha, dx, dy) => {   // vol/gas z klatki wyzej
+    g.save();
+    g.translate(carX + dx, road - 35*k + bob + dy);   // 35 = spod kola w ukladzie bolidu
+    g.scale(k, k);
+    g.globalAlpha = alpha;
+    paintCar(g);
+    // plomien rosnie z basem - przy mocnym uderzeniu strzela z rury
+    const fl = (4 + Math.sin(t * 37) * 3) * (1 + gas * 3.2);
+    const hw = 1.9 + vol * 3.4;                       // grubosc rosnie z utworem
+    const flame = g.createLinearGradient(11, 0, 11 - fl, 0);
+    flame.addColorStop(0, 'rgba(255,246,210,.95)');
+    flame.addColorStop(.4, `rgba(255,${150 + gas * 80},90,.9)`);
+    flame.addColorStop(1, 'rgba(255,120,60,0)');
+    g.fillStyle = flame;
+    g.beginPath();
+    g.moveTo(11, 22.5 - hw);
+    g.quadraticCurveTo(11 - fl * .5, 22.5 - hw * .8, 11 - fl, 22.5);
+    g.quadraticCurveTo(11 - fl * .5, 22.5 + hw * .8, 11, 22.5 + hw);
+    g.closePath(); g.fill();
+    if (gas > .55) {                                     // strzaly z wydechu
+      g.fillStyle = 'rgba(255,235,200,.9)';
+      for (let q = 0; q < 5; q++) {
+        const d = fl * (.4 + q * .22);
+        g.beginPath(); g.arc(11 - d, 22.6 + Math.sin(t * 40 + q) * 2.5, 1.6 - q * .2, 0, 7); g.fill();
+      }
+    }
+    paintWheel(g, 24, 26, 9, RACE.wheel);
+    paintWheel(g, 84, 26, 9, RACE.wheel);
+    g.restore();
+  };
+
+  // smuga: kilka poszarpanych kopii, kazda inaczej przesunieta i podarta
+  for (let i = 3; i >= 1; i--) {
+    const jit = Math.sin(t * 27 + i * 2) * H * .008;
+    drawCar(.14 - i * .03, -W * .026 * i, jit);
+  }
+  g.fillStyle = 'rgba(125,225,255,.18)';                // strzepy pedu za bolidem
+  for (let i = 0; i < 16; i++) {
+    const q = ((RACE.dist * 2 + i * .13) % 1);
+    g.fillRect(carX - q * W*.3, road - H*.02 - ((i*29) % 7) * H*.018,
+               W * .02 * (1 - q), H * .006);
+  }
+  drawCar(1, 0, 0);
+
+  g.restore();
+
+  raceHud(g, W, H, gas);
+
+  // blysk po cieciu kamery
+  const fl = .3 - (t - CAM.flash) * 2.2;
+  if (fl > 0) { g.fillStyle = `rgba(200,240,255,${fl})`; g.fillRect(0, 0, W, H); }
+}
+
+// ---------- wskazowki ----------
+// Wskazowka ma bezwladnosc i smuge po sobie, czerwona strefa zapala kontrolke.
+const NEEDLE = [0, 0], NTRAIL = [[], []], PEAK = [-9, -9];
+const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
+const SCALE = ['-20', '-10', '-5', '0', '+1', '+3'];   // 6 duzych kresek = 6 opisow
+
+function drawGauges(g, c) {
+  const W = c.width, H = c.height, t = performance.now() / 1000, lv = levels();
+  g.clearRect(0, 0, W, H);
+  g.shadowColor = 'rgba(90,220,255,.8)'; g.shadowBlur = W * .008;
+
+  [[W*.29, avg(lv.slice(0, 7)), 'L'], [W*.71, avg(lv.slice(9)), 'R']].forEach(([cx, v, lab], i) => {
+    NEEDLE[i] += (v - NEEDLE[i]) * .13;
+    const val = Math.min(1, NEEDLE[i]);
+    NTRAIL[i].unshift(val);
+    if (NTRAIL[i].length > 9) NTRAIL[i].pop();
+    if (val > .72) PEAK[i] = t;
+
+    const cy = H * .40, r = W * .175, A0 = Math.PI * 1.14, SW = Math.PI * .72;
+    const at = (a, rr) => [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr];
+
+    // obudowa: dwa luki i cieniowane pole tarczy
+    const face = g.createLinearGradient(cx, cy - r, cx, cy + r * .3);
+    face.addColorStop(0, 'rgba(110,205,245,.16)'); face.addColorStop(1, 'rgba(110,205,245,0)');
+    g.fillStyle = face;
+    g.beginPath(); g.arc(cx, cy, r * .98, A0, A0 + SW); g.lineTo(cx, cy); g.fill();
+    g.strokeStyle = 'rgba(150,230,255,.55)'; g.lineWidth = W * .006;
+    g.beginPath(); g.arc(cx, cy, r, A0, A0 + SW); g.stroke();
+    g.strokeStyle = 'rgba(150,230,255,.25)'; g.lineWidth = W * .003;
+    g.beginPath(); g.arc(cx, cy, r * .74, A0, A0 + SW); g.stroke();
+
+    // czerwona strefa grubszym lukiem
+    g.strokeStyle = 'rgba(255,150,90,.85)'; g.lineWidth = W * .009;
+    g.beginPath(); g.arc(cx, cy, r * .93, A0 + SW * .72, A0 + SW); g.stroke();
+
+    // podzialka z opisami
+    for (let k = 0; k <= 10; k++) {
+      const a = A0 + k / 10 * SW, big = k % 2 === 0;
+      g.strokeStyle = k > 7 ? 'rgba(255,185,115,.95)' : 'rgba(150,230,255,.8)';
+      g.lineWidth = W * (big ? .006 : .003);
+      g.beginPath();
+      g.moveTo(...at(a, r * (big ? .8 : .85))); g.lineTo(...at(a, r * .95)); g.stroke();
+      if (big) {
+        const [lx, ly] = at(a, r * .62);
+        g.fillStyle = 'rgba(175,235,255,.7)';
+        g.font = `600 ${W*.022}px Helvetica, sans-serif`; g.textAlign = 'center';
+        g.fillText(SCALE[k / 2], lx, ly + W * .01);
+      }
+    }
+
+    // smuga po wskazowce
+    NTRAIL[i].forEach((tv, j) => {
+      if (!j) return;
+      g.strokeStyle = `rgba(140,225,255,${.22 * (1 - j / NTRAIL[i].length)})`;
+      g.lineWidth = W * .006;
+      g.beginPath(); g.moveTo(cx, cy); g.lineTo(...at(A0 + tv * SW, r * .88)); g.stroke();
+    });
+
+    const a = A0 + val * SW;
+    g.strokeStyle = 'rgba(10,35,52,.55)'; g.lineWidth = W * .01;   // cien wskazowki
+    g.beginPath(); g.moveTo(cx + W*.004, cy + W*.004); g.lineTo(...at(a, r * .9)); g.stroke();
+    g.strokeStyle = '#eafaff'; g.lineWidth = W * .008; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(...at(a + Math.PI, r * .16)); g.lineTo(...at(a, r * .9)); g.stroke();
+    g.fillStyle = '#eafaff';
+    g.beginPath(); g.arc(cx, cy, W * .014, 0, 7); g.fill();
+    g.fillStyle = 'rgba(10,35,52,.8)';
+    g.beginPath(); g.arc(cx, cy, W * .005, 0, 7); g.fill();
+
+    // kontrolka PEAK + opis kanalu
+    const hot = t - PEAK[i] < .7;
+    g.fillStyle = hot ? '#ff8a5c' : 'rgba(255,138,92,.22)';
+    g.beginPath(); g.arc(cx - r * 1.0, cy - r * 1.02, W * .012, 0, 7); g.fill();
+    g.font = `700 ${W*.023}px Helvetica, sans-serif`; g.textAlign = 'left';
+    g.fillStyle = hot ? 'rgba(255,190,150,.95)' : 'rgba(255,190,150,.3)';
+    g.fillText('PEAK', cx - r * .88, cy - r * .98);
+
+    g.textAlign = 'center';
+    g.font = `700 ${W*.04}px Helvetica, sans-serif`;
+    g.fillStyle = 'rgba(190,240,255,.9)';
+    g.fillText(lab, cx, cy + r * .42);
+    g.font = `600 ${W*.022}px Helvetica, sans-serif`;
+    g.fillStyle = 'rgba(150,220,255,.55)';
+    g.fillText('dB', cx, cy + r * .62);
+
+    // pasek pod tarcza
+    const bw = r * 1.5, bx = cx - bw / 2, by = cy + r * .78;
+    for (let k = 0; k < 14; k++) {
+      const on = k / 14 < val;
+      g.fillStyle = on ? (k > 10 ? '#ff9a63' : '#7de8ff') : 'rgba(125,225,255,.15)';
+      g.fillRect(bx + k * bw / 14, by, bw / 14 * .7, H * .022);
+    }
+  });
+
+  g.shadowBlur = 0;
+}
+
+// ---------- gramofony ----------
+// Dwa talerze zyja wlasnym zyciem: co chwile losuja nowa predkosc, czasem
+// jeden lapie rytm drugiego, czasem ktorys idzie w tyl.
+const DECK = [{ a:0, v:5, next:0 }, { a:0, v:5, next:0 }];
+let djClock = 0;
+
+function drawDJ(g, c) {
+  const W = c.width, H = c.height, t = performance.now() / 1000;
+  const dt = Math.min(.05, t - (djClock || t)); djClock = t;
+  g.clearRect(0, 0, W, H);
+
+  DECK.forEach((d, i) => {
+    if (t > d.next) {
+      d.next = t + 1.2 + Math.random() * 3;
+      d.v = (Math.random() < .18 ? -1 : 1) * (1.5 + Math.random() * 11);
+      if (i === 1 && Math.random() < .35) { d.v = DECK[0].v; d.next = DECK[0].next; }
+    }
+    d.a += d.v * dt;
+
+    const cx = i ? W * .79 : W * .21, cy = H * .34, r = W * .155;
+    g.save(); g.translate(cx, cy); g.rotate(d.a);
+
+    if (npArt?.complete && npArt.naturalWidth) {
+      g.save();
+      g.beginPath(); g.arc(0, 0, r, 0, 7); g.clip();
+      g.drawImage(npArt, -r, -r, r * 2, r * 2);       // miniaturka na calej plycie
+      g.restore();
+    } else {
+      g.fillStyle = '#12384f'; g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill();
+    }
+    g.strokeStyle = 'rgba(190,240,255,.75)'; g.lineWidth = W * .004;
+    g.beginPath(); g.arc(0, 0, r, 0, 7); g.stroke();
+    g.fillStyle = '#0c1a24';                          // otwor na osi
+    g.beginPath(); g.arc(0, 0, r * .06, 0, 7); g.fill();
+    g.restore();
+  });
+
+  meterColor(g, W * .38, H * .05, W * .24, H * .55, 9, 20, levels());
+}
+
+// ponytail: plik z dysku (file://) bywa uznany za cross-origin i po wpieciu
+// w WebAudio element potrafi ucichnac NA STALE - tego sie nie cofa. Wiec
+// najpierw probka na osobnym elemencie wpietym w wyciszony tor; realny audio
+// podlaczamy dopiero, gdy analizator faktycznie cos widzi. Jak nie - paski
+// chodza z animacji.
+let analyser = null, freq = null, probed = false;
+
+async function wireAnalyser() {
+  if (probed || !queue[qi]) return;
+  probed = true;
+  try {
+    const ctx = new AudioContext();
+    await ctx.resume();
+    const mute = ctx.createGain(); mute.gain.value = 0; mute.connect(ctx.destination);
+    const test = ctx.createAnalyser(); test.fftSize = 256; test.connect(mute);
+
+    const p = new Audio(queue[qi].file);
+    ctx.createMediaElementSource(p).connect(test);
+    await new Promise(r => p.addEventListener('loadedmetadata', r, { once:true }));
+    p.currentTime = (p.duration || 9) / 3;          // srodek utworu, zeby nie trafic w cisze
+    await p.play();
+    await new Promise(r => setTimeout(r, 500));
+    const d = new Uint8Array(test.frequencyBinCount);
+    test.getByteFrequencyData(d);
+    p.pause();
+    if (!d.some(v => v)) return void ctx.close();
+
+    const a = ctx.createAnalyser();
+    a.fftSize = 256; a.smoothingTimeConstant = .75;
+    ctx.createMediaElementSource(audio).connect(a);
+    a.connect(ctx.destination);
+    analyser = a; freq = new Uint8Array(a.frequencyBinCount);
+  } catch {}
+}
+
+function renderDL() {
+  const s = cur();
+  body.className = 'body';
+  body.innerHTML = `<div class="dl">
+      <div class="seg"><button id="mAud" class="on">Muzyka</button><button id="mVid">Filmik</button></div>
+      <h3 id="dtitle"></h3>
+      <input id="url" spellcheck="false">
+      <div class="msg" id="dmsg"></div>
+      <div class="hint" id="dhint"></div>
+    </div>`;
+  const inp = $('#url'), msg = $('#dmsg'), hint = $('#dhint');
+  let video = false;
+
+  const setMode = v => {
+    video = v;
+    $('#mAud').classList.toggle('on', !v);
+    $('#mVid').classList.toggle('on', v);
+    $('#dtitle').textContent = v ? 'Wklej link z YouTube' : 'Wklej link z YouTube lub Spotify';
+    inp.placeholder = v ? 'youtube.com/watch?v=…' : 'youtube.com/watch?v=… albo open.spotify.com/…';
+    if (dlBin) hint.innerHTML = v
+      ? 'Enter albo środkowy przycisk pobiera. Film w najwyższej jakości (MP4) ląduje w ~/Music/iPod.'
+      : 'Enter albo środkowy przycisk pobiera. Plik ląduje w ~/Music/iPod i pojawia się w Muzyce.'
+        + '<br>Link ze Spotify (utwór, album, playlista) służy tylko za listę tytułów — dźwięk i tak leci z YouTube.';
+    inp.focus();
+  };
+  $('#mAud').onclick = () => setMode(false);
+  $('#mVid').onclick = () => setMode(true);
+  setMode(false);
+
+  if (!dlBin) {
+    msg.className = 'msg err';
+    msg.textContent = 'Brak yt-dlp — bez niego pobieranie nie zadziała.';
+    hint.innerHTML = 'Zainstaluj: <code>brew install yt-dlp</code><br>Potem: Ustawienia → Odśwież bibliotekę.';
+  }
+
+  // jedno zrodlo pobierania - Enter i srodkowy przycisk wolaja to samo
+  s.submit = async () => {
+    if (inp.disabled || !inp.value.trim()) return;
+    msg.className = 'msg'; msg.textContent = 'Pobieram… 0%';
+    inp.disabled = true;
+    const r = await ipod.download(inp.value.trim(), video);
+    inp.disabled = false;
+    if (r.ok) {
+      msg.className = 'msg ok';
+      msg.textContent = r.total > 1
+        ? `Gotowe. Pobrano ${r.total - r.failed} z ${r.total}.`
+        : video ? 'Gotowe. Film zapisany w ~/Music/iPod.' : 'Gotowe. Dodano do biblioteki.';
+      inp.value = ''; await load();
+    } else if (r.error === 'NO_YTDLP') {
+      msg.className = 'msg err'; msg.textContent = 'Brak yt-dlp.';
+    } else {
+      msg.className = 'msg err'; msg.textContent = r.error;
+    }
+  };
+
+  inp.onkeydown = e => { if (e.key === 'Enter') s.submit(); };
+}
+
+ipod.onProgress(p => { const m = $('#dmsg'); if (m && m.textContent.startsWith('Pobieram')) m.textContent = `Pobieram… ${p}%`; });
+
+// ---------- click wheel ----------
+const wheel = $('#wheel');
+const STEP = Math.PI / 9;                                   // 20° = jedna pozycja
+const angleAt = e => { const r = wheel.getBoundingClientRect();
+  return Math.atan2(e.clientY - (r.top + r.height/2), e.clientX - (r.left + r.width/2)); };
+
+let last = null, acc = 0, moved = 0, start = 0;
+
+wheel.addEventListener('pointerdown', e => {
+  if (e.target.id === 'center') return;
+  last = start = angleAt(e); acc = moved = 0;
+  wheel.setPointerCapture(e.pointerId);
+});
+
+wheel.addEventListener('pointermove', e => {
+  if (last === null) return;
+  const a = angleAt(e);
+  const d = ipod.wheelDelta(a, last);                        // normalizacja przez ±π -> lib.js
+  acc += d; moved += Math.abs(d); last = a;
+  while (acc >  STEP) { acc -= STEP; scroll( 1); }
+  while (acc < -STEP) { acc += STEP; scroll(-1); }
+});
+
+wheel.addEventListener('pointerup', () => {
+  if (last === null) return;
+  if (moved < 0.25) {                                        // klik, nie obrot -> strefa
+    const a = start, P = Math.PI;
+    if      (a < -P*0.75 || a >  P*0.75) prev();
+    else if (a < -P*0.25)                pop();               // gora = MENU
+    else if (a <  P*0.25)                next();
+    else                                 toggle();
+  }
+  last = null;
+});
+
+// srodkowy przycisk i Enter robia to samo, zaleznie od ekranu
+function press() {
+  const s = cur();
+  if (s.dl) s.submit?.(); else if (s.np) toggle(); else select();
+}
+$('#center').onclick = press;
+$('#close').onclick  = () => ipod.quit();
+$('#min').onclick    = () => ipod.minimize();
+
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'o') {   // szybka zmiana ekranu
+    e.preventDefault();
+    const i = NP_THEMES.findIndex(t => t[0] === npTheme);
+    npTheme = NP_THEMES[(i + 1) % NP_THEMES.length][0];
+    localStorage.setItem('nptheme', npTheme);
+    if (npTheme === 'shuffle') reshuffle();
+    refresh();
+    return;
+  }
+  if (document.activeElement?.tagName === 'INPUT') return;    // ekran pobierania ma swoje
+  const k = { ArrowDown:()=>scroll(1), ArrowUp:()=>scroll(-1), Enter:press,
+              Escape:pop, Backspace:pop, ArrowRight:next, ArrowLeft:prev,
+              ' ':() => cur().np ? toggle() : press() }[e.key];
+  if (k) { e.preventDefault(); k(); }
+});
+
+// ---------- bateria ----------
+// Stale rozladowana, jak proszono. Wczesniej pokazywala realny stan Maca przez
+// pmset - kod jest w historii, gdyby mialo wrocic.
+function paintBattery() {
+  $('#battfill').style.transform = 'scaleX(0.12)';
+  $('#batt').className = 'batt low';
+}
+
+// ---------- start ----------
+async function load() { tracks = await ipod.listTracks(); }
+
+(async () => {
+  const st = await ipod.downloaderStatus();
+  dlBin = st.path; dlDir = st.dir;
+  await load();
+  stack = [MAIN()];
+  render();
+  paintBattery();
+})();
+</script>
+</body>
+</html>

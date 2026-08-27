@@ -1,0 +1,19 @@
+# zależności i buildy — odtwarzalne z package.json
+node_modules/
+dist/
+
+# katalog na muzykę użytkownika
+music/
+
+# śmieci systemowe i edytora
+.DS_Store
+.vscode/
+*.dSYM/
+
+# Python
+__pycache__/
+*.pyc
+
+# Lokalny wyjątek DNS dla yt-dlp — zostaje na dysku i wchodzi do Twojego
+# builda, ale nie do publicznego repo. main.js działa też bez niego.
+ytshim/
