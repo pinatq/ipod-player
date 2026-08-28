@@ -31,5 +31,7 @@
       "category": "public.app-category.music",
       "target": "dmg"
     }
-  }
+  },
+  "license": "MIT",
+  "author": "Miłosz Tomaszewski"
 }
