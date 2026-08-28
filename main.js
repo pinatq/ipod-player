@@ -34,9 +34,12 @@ const YTDLP_PATHS = [
 // /etc/hosts celowo blokuje www.youtube.com i ma tak zostac. Ten katalog daje
 // wyjatek WYLACZNIE procesowi yt-dlp odpalonemu stad - szczegoly w
 // ytshim/sitecustomize.py. Reszta systemu blokady nie omija.
-const SHIM_DIR = app.isPackaged
-  ? path.join(process.resourcesPath, 'app.asar.unpacked', 'ytshim')
-  : path.join(__dirname, 'ytshim');
+// Opcjonalny katalog z dodatkiem do PYTHONPATH dla yt-dlp. Publiczna paczka
+// go nie zawiera; jesli ktos go sobie polozy, zostanie uzyty.
+const SHIM_DIR = [
+  path.join(app.getPath('userData'), 'ytshim'),
+  path.join(__dirname, 'ytshim'),
+].find(p => { try { return fs.existsSync(p); } catch { return false; } }) || '';
 
 function findYtdlp() {
   return YTDLP_PATHS.find(p => { try { fs.accessSync(p, fs.constants.X_OK); return true; } catch { return false; } }) || null;
@@ -143,7 +146,7 @@ function runYtdlp(bin, target, video, onProgress) {
     // Shim jest opcjonalny: bez niego yt-dlp dziala normalnie, tylko nie omija
     // lokalnej blokady w /etc/hosts. Publiczna wersja go nie zawiera.
     const env = { ...process.env };
-    if (fs.existsSync(SHIM_DIR)) env.PYTHONPATH = SHIM_DIR;
+    if (SHIM_DIR) env.PYTHONPATH = SHIM_DIR;
     const opts = { timeout: 10 * 60 * 1000, env };
     const child = execFile(bin, args, opts, (err, stdout, stderr) => {
       if (err) {

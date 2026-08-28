@@ -19,12 +19,9 @@
       "preload.js",
       "lib.js",
       "remux.js",
+      "i18n.js",
       "index.html",
-      "icon.png",
-      "ytshim/**"
-    ],
-    "asarUnpack": [
-      "ytshim/**"
+      "icon.png"
     ],
     "mac": {
       "icon": "icon.png",
