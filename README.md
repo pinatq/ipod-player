@@ -25,6 +25,13 @@ that wheel on my desktop. The visualizers and the downloader grew out of it late
   list of titles.
 - Interface in 29 languages, picked from your system settings.
 
+## Around the app
+
+| | |
+|---|---|
+| ![Menus](docs/menu.gif)<br>**Menus** — a split view with icons on the right, then the list, then straight into playback. | ![Library](docs/library.gif)<br>**Library in Cover Flow** — the same library, browsed by artwork instead of by name. |
+| ![Settings](docs/settings.gif)<br>**Settings** — pick a playback screen, pick a language, all in the same wheel. | ![Downloads](docs/download.gif)<br>**Downloads** — paste a YouTube or Spotify link, audio or video. |
+
 ## Playback screens
 
 | | |
