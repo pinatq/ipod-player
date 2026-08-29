@@ -27,18 +27,13 @@ that wheel on my desktop. The visualizers and the downloader grew out of it late
 
 ## Playback screens
 
-| Screen | What you get |
+| | |
 |---|---|
-| Classic | Cover, title, progress — the plain one |
-| Full cover | Artwork edge to edge with a blurred backdrop |
-| Cover Flow | The accordion of covers, centred on what is playing |
-| Vinyl | Artwork as a label on a spinning record |
-| Dolphins | Four rotating underwater scenes: a breach, a pod, the deep, a mirrored pair |
-| Race car | A car that speeds up with the song, with camera cuts from the side, the front and behind |
-| VU meters | Needles with inertia, peak lamps and a dB scale |
-| Turntables | Two decks spinning at their own pace, colour equaliser between them |
-| Waves | A slow-motion oscilloscope trailing its own history |
-| Random | Draws a different screen for every track |
+| ![Classic](docs/classic.gif)<br>**Classic** — cover, title, progress. The plain one. | ![Full cover](docs/cover.gif)<br>**Full cover** — artwork edge to edge over a blurred backdrop. |
+| ![Cover Flow](docs/flow.gif)<br>**Cover Flow** — the accordion of covers, centred on what is playing. | ![Vinyl](docs/vinyl.gif)<br>**Vinyl** — artwork as a label on a spinning record. |
+| ![Dolphins](docs/dolphins.gif)<br>**Dolphins** — four rotating underwater scenes: a breach, a pod, the deep, a mirrored pair. | ![Race car](docs/race.gif)<br>**Race car** — speeds up with the song, camera cutting between side, front and rear. |
+| ![VU meters](docs/gauges.gif)<br>**VU meters** — needles with inertia, peak lamps, a dB scale. | ![Turntables](docs/dj.gif)<br>**Turntables** — two decks at their own pace, colour equaliser between them. |
+| ![Waves](docs/wave.gif)<br>**Waves** — a slow-motion oscilloscope trailing its own history. | ![Random](docs/shuffle.gif)<br>**Random** — draws a different screen for every track. |
 
 The race car and the dolphins follow the music: a smoothed energy reading drives
 the speed, and the bass drives the exhaust flame.
