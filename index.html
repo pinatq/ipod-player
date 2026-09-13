@@ -138,7 +138,7 @@
                display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
 
   /* ---------- now playing ---------- */
-  .np { flex:1; background:linear-gradient(#fbfcfd,#e4e8ee); display:flex;
+  .np { flex:1; position:relative; background:linear-gradient(#fbfcfd,#e4e8ee); display:flex;
         flex-direction:column; align-items:center; padding:9px 12px; gap:7px; }
   .np { gap:5px; }
   .np .art { width:70px; height:70px; }
@@ -174,6 +174,14 @@
   .np.ov .ti { text-shadow:0 1px 3px rgba(0,0,0,.85); }
   .np.ov .track { background:rgba(255,255,255,.26); box-shadow:none; }
   .np.ov .times { color:rgba(255,255,255,.72); }
+  /* maly przycisk zapisu na ekranie odtwarzania - widoczny tylko przy strumieniu */
+  .npx { position:absolute; top:6px; right:6px; z-index:3; display:flex; gap:5px; }
+  .npx button { width:22px; height:22px; padding:3px; border:0; border-radius:50%;
+    background:rgba(0,0,0,.42); cursor:pointer; display:flex; }
+  .np:not(.ov) .npx button { background:rgba(90,98,110,.55); }
+  .npx button svg { width:100%; height:100%; stroke-width:3.4; }
+  .npx button.done { background:#3f8f4e; }
+  .npx button:disabled { opacity:.45; }
   .np canvas { position:absolute; inset:0; width:100%; height:100%; }
   .np canvas.lofi { image-rendering:pixelated; }   /* matryca ma byc widoczna */
 
@@ -328,16 +336,90 @@ let T = {}, LANGS = [], LOCALE = 'en';                 // teksty z i18n.js przez
 const fill = (txt, vars) => String(txt).replace(/\{(\w+)\}/g, (m, k) => k in vars ? vars[k] : m);
 
 // ---------- ekrany ----------
-const MAIN = () => ({
-  title:'iPod', split:true, sel:0,
+// ---------- menu glowne ----------
+// Pozycje maja stale identyfikatory, bo uzytkownik moze je ukrywac i przestawiac.
+const HOME_ITEMS = {
+  music:      () => ({ lbl:T.music,      icon:'collage',  go:() => MUSIC() }),
+  download:   () => ({ lbl:T.download,   icon:'download', go:() => DOWNLOAD() }),
+  ytm:        () => ({ lbl:T.ytm,        icon:'cloud',    go:() => ytmMode ? YTMHOME() : YTMCONNECT() }),
+  spotify:    () => ({ lbl:T.spotify,    icon:'cloud',    go:() => spLinked ? SPHOME() : SPMENU() }),
+  shuffle:    () => ({ lbl:T.shuffle,    icon:'shuffle',  act:() => { if(!tracks.length) return; queue=[...tracks].sort(()=>Math.random()-.5); play(0); push(NOWPLAYING()); } }),
+  settings:   () => ({ lbl:T.settings,   icon:'gear',     go:() => SETTINGS() }),
+  nowPlaying: () => ({ lbl:T.nowPlaying, icon:'play',     act:() => { if(qi>=0) push(NOWPLAYING()); } }),
+};
+const HOME_ORDER = ['music','download','ytm','spotify','shuffle','settings','nowPlaying'];
+
+// Porzadkowanie zapisu siedzi w lib.js, razem z testem.
+function homeLayout() {
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('home')); } catch {}
+  return ipod.homeMenuLayout(saved, HOME_ORDER, 'settings');
+}
+
+function saveHome(l) {
+  try { localStorage.setItem('home', JSON.stringify(l)); } catch {}
+  // bez tego menu pod spodem zostawalo stare az do restartu
+  stack[0] = MAIN();
+}
+
+const MAIN = () => {
+  const { order, hidden } = homeLayout();
+  return { title:'iPod', split:true, sel:0,
+    items: order.filter(id => !hidden.includes(id)).map(id => HOME_ITEMS[id]()) };
+};
+
+const HOMEMENU = () => ({
+  title:T.homeScreen, split:true, sel:0,
   items:[
-    { lbl:T.music,       icon:'collage',  go:() => MUSIC() },
-    { lbl:T.download,    icon:'download', go:() => DOWNLOAD() },
-    { lbl:T.shuffle,     icon:'shuffle',  act:() => { if(!tracks.length) return; queue=[...tracks].sort(()=>Math.random()-.5); play(0); push(NOWPLAYING()); } },
-    { lbl:T.settings,    icon:'gear',     go:() => SETTINGS() },
-    { lbl:T.nowPlaying,  icon:'play',     act:() => { if(qi>=0) push(NOWPLAYING()); } },
+    { lbl:T.visibility, icon:'collage', go:() => HOMEVIS() },
+    { lbl:T.order,      icon:'shuffle', go:() => { grabbed = null; return HOMEORDER(); } },
   ],
 });
+
+const HOMEVIS = () => {
+  const l = homeLayout();
+  return { title:T.visibility, split:true, sel:0,
+    items: l.order.map(id => {
+      const it = HOME_ITEMS[id]();
+      const on = !l.hidden.includes(id);
+      const fixed = id === 'settings';
+      return { lbl:(on ? '✓ ' : '– ') + it.lbl, icon:it.icon, leaf:true,
+        sub: fixed ? T.alwaysShown : it.lbl,
+        act:() => {
+          if (fixed) return;
+          const hidden = on ? [...l.hidden, id] : l.hidden.filter(x => x !== id);
+          saveHome({ order:l.order, hidden });
+          const sel = cur().sel;
+          stack[stack.length-1] = HOMEVIS(); cur().sel = sel; render();
+        } };
+    }) };
+};
+
+// Kolejnosc: srodkowy przycisk podnosi pozycje, kolo ja przesuwa, srodkowy upuszcza.
+let grabbed = null;
+
+const HOMEORDER = () => {
+  const l = homeLayout();
+  return { title:T.order, split:true, sel:Math.max(0, l.order.indexOf(grabbed)), reorder:true,
+    items: l.order.map(id => {
+      const it = HOME_ITEMS[id]();
+      return { lbl:(grabbed === id ? '⇕ ' : '  ') + it.lbl, icon:it.icon, leaf:true,
+        sub: grabbed === id ? T.dropHint : T.grabHint,
+        act:() => { grabbed = grabbed === id ? null : id; stack[stack.length-1] = HOMEORDER(); render(); } };
+    }) };
+};
+
+function moveHome(d) {
+  const l = homeLayout();
+  const i = l.order.indexOf(grabbed);
+  if (i < 0) return;
+  const j = Math.max(0, Math.min(l.order.length - 1, i + d));
+  if (i === j) return;
+  l.order.splice(j, 0, l.order.splice(i, 1)[0]);
+  saveHome(l);
+  stack[stack.length-1] = HOMEORDER();
+  render();
+}
 
 // przelaczane w Ustawieniach; zapamietane miedzy uruchomieniami
 let coverView = localStorage.getItem('view') === 'cover';
@@ -354,6 +436,97 @@ const MUSIC = () => {
   };
 };
 
+// ---------- YouTube Music / Spotify ----------
+// Dzwiek ZAWSZE leci z YouTube. Spotify daje wylacznie liste utworow, bo jego
+// audio jest zaszyfrowane (Widevine) - stad dopasowanie po ISRC przy odtwarzaniu.
+let ytmMode = null, spLinked = false, spClientId = '', spRedirect = '';
+
+// Ekran, ktory dociaga pozycje w tle. Zwraca obiekt od razu, zeby dzialal
+// z `go:` - lista podmienia sie na miejscu, gdy dane dojda.
+function asyncScreen(title, loader) {
+  const s = { title, split:true, sel:0, items:[{ lbl:T.loading, leaf:true, act(){} }] };
+  const done = items => {
+    s.items = items.length ? items : [{ lbl:T.empty, leaf:true, act(){} }];
+    s.sel = 0;
+    if (cur() === s) render();
+  };
+  loader().then(done, () => done([]));
+  return s;
+}
+
+const ytmTrack = t => ({
+  id: t.id, title: t.title, artist: t.artist, remote: 'ytm',
+  art: `https://i.ytimg.com/vi/${t.id}/hqdefault.jpg`,
+});
+const spTrack = t => ({
+  q: ipod.matchQuery(t), title: t.title, artist: t.artist, art: t.art, remote: 'sp',
+});
+
+// Lista utworow ze Shuffle na gorze - ten sam uklad co w Muzyce.
+const TRACKS = (title, loader) => asyncScreen(title, async () => {
+  const ts = await loader();
+  if (!ts.length) return [];
+  prefetch(ts[0]);
+  return [
+    { lbl:T.shuffle, icon:'shuffle', leaf:true,
+      act:() => { queue = [...ts].sort(() => Math.random() - .5); play(0); push(NOWPLAYING()); } },
+    ...ts.map((t, i) => ({ lbl:t.title, sub:t.artist, art:t.art, leaf:true,
+      act:() => { queue = [...ts]; play(i); push(NOWPLAYING()); } })),
+  ];
+});
+
+function YTMCONNECT() {
+  const s = { title:T.ytm, split:true, sel:0, items:[] };
+  const note = { lbl:T.notConnected, leaf:true, act(){} };
+  const go = fn => async () => {
+    note.lbl = T.loading; render();
+    const r = await fn();
+    if (!r.ok) { note.lbl = r.error; render(); return; }
+    ytmMode = r.mode || 'window';
+    stack[stack.length-1] = YTMHOME(); render();
+  };
+  s.items = [
+    { lbl:T.loginWindow, icon:'cloud', leaf:true, act:go(() => ipod.ytmLogin()) },
+    // Zapasowa droga: Google czasem odrzuca logowanie w oknie aplikacji.
+    { lbl:T.useSafari, icon:'globe', leaf:true, act:go(() => ipod.ytmUseSafari()) },
+    note,
+  ];
+  return s;
+}
+
+const YTMHOME = () => asyncScreen(T.ytm, async () => [
+  { lbl:T.likedMusic, icon:'cloud',
+    go:() => TRACKS(T.likedMusic, async () => (await ipod.ytmTracks('LM')).map(ytmTrack)) },
+  ...(await ipod.ytmPlaylists()).map(p => ({ lbl:p.title, icon:'cloud',
+    go:() => TRACKS(p.title, async () => (await ipod.ytmTracks(p.id)).map(ytmTrack)) })),
+  { lbl:T.disconnect, icon:'trash', leaf:true,
+    act:async () => { await ipod.ytmDisconnect(); ytmMode = null; pop(); } },
+]);
+
+// Bez logowania: wklejony link do publicznej playlisty. Zero konfiguracji,
+// za to embed nie podaje ISRC, wiec dopasowanie na YouTube bywa gorsze.
+const SPLINK = () => ({ title:T.spotify, link:true });
+
+const SPMENU = () => ({
+  title:T.spotify, split:true, sel:0,
+  items:[
+    { lbl:T.spotifyLink,  icon:'cloud', go:() => SPLINK() },
+    { lbl:T.spotifyLogin, icon:'gear',  go:() => SPCONNECT() },
+  ],
+});
+
+const SPCONNECT = () => ({ title:T.spotify, id:true });
+
+const SPHOME = () => asyncScreen(T.spotify, async () => [
+  { lbl:T.spotifyLink, icon:'cloud', go:() => SPLINK() },
+  { lbl:T.likedSongs, icon:'cloud',
+    go:() => TRACKS(T.likedSongs, async () => (await ipod.spotifyTracks('liked')).map(spTrack)) },
+  ...(await ipod.spotifyPlaylists()).map(p => ({ lbl:p.title, icon:'cloud',
+    go:() => TRACKS(p.title, async () => (await ipod.spotifyTracks(p.id)).map(spTrack)) })),
+  { lbl:T.disconnect, icon:'trash', leaf:true,
+    act:async () => { await ipod.spotifyDisconnect(); spLinked = false; spClientId = ''; pop(); } },
+]);
+
 const SETTINGS = () => ({
   title:T.settings, split:true, sel:0,
   items:[
@@ -362,6 +535,7 @@ const SETTINGS = () => ({
                   stack[stack.length-1] = SETTINGS(); render(); } },
     { lbl:`${T.npScreen}: ${T[(NP_THEMES.find(t => t[0] === npTheme) || NP_THEMES[0])[1]]}`, icon:'play',
       go:() => NPSCREEN() },
+    { lbl:T.homeScreen,           icon:'collage', go:() => HOMEMENU() },
     { lbl:T.removeTrack,          icon:'trash',   go:() => REMOVE() },
     { lbl:`${T.language}: ${(LANGS.find(l => l[0] === LOCALE) || ['','English'])[1]}`, icon:'globe',
       go:() => LANGSCREEN() },
@@ -476,6 +650,7 @@ const pop  = () => { if(stack.length>1){ stack.pop(); render(); } };
 function scroll(d) {
   const s = cur();
   if (s.np) return setVolume(d);   // na "Teraz odtwarzane" kolo reguluje glosnosc, jak w oryginale
+  if (s.reorder && grabbed) return moveHome(d);
   if (!s.items) return;
   s.sel = Math.max(0, Math.min(s.items.length-1, s.sel + d));
   if (s.cf) return layoutCF(s);          // same przesuniecie, bez przebudowy
@@ -491,14 +666,59 @@ function select() {
 }
 
 // ---------- odtwarzanie ----------
-function play(i) {
+// Adres strumienia wygasa po kilku godzinach, wiec rozwiazujemy go dopiero przy
+// utworze i pamietamy tylko na czas sesji.
+async function resolveStream(t) {
+  if (t.file || t.src) return true;
+  // Jedno rozwiazywanie na utwor: bez tego ⏭ wciesniete w trakcie pobierania
+  // z wyprzedzeniem odpalalo drugi proces yt-dlp na ten sam utwor.
+  if (!t.pending) {
+    t.pending = ipod.streamUrl(t.id || t.q).then(r => {
+      if (!r.ok) { t.pending = null; return false; }   // null -> mozna sprobowac ponownie
+      t.src = r.url;
+      // Embed Spotify daje jedna okladke na cala playliste - podmieniamy ja
+      // miniatura tego, co faktycznie zagralo. Prawdziwej okladki nie ruszamy.
+      if (r.id && (!t.art || t.artPlaceholder)) {
+        t.art = `https://i.ytimg.com/vi/${r.id}/hqdefault.jpg`;
+        t.artPlaceholder = false;
+      }
+      return true;
+    }, () => { t.pending = null; return false; });
+  }
+  return t.pending;
+}
+
+// Rozwiazujemy w tle, zanim utwor bedzie potrzebny - stad natychmiastowe ⏭
+// i natychmiastowy start pierwszego utworu po wejsciu na playliste.
+function prefetch(t) {
+  if (t && !t.file && !t.src) resolveStream(t).catch(() => {});
+}
+
+let playGen = 0, loading = false;
+async function play(i) {
   if (!queue.length) return;
   qi = (i + queue.length) % queue.length;
   if (npTheme === 'shuffle') reshuffle();
-  audio.src = queue[qi].file;
-  audio.play().catch(()=>{});
-  // bez tego ⏭/⏮ zmienialy dzwiek, ale ekran pokazywal dalej stary utwor
+
+  const t = queue[qi], gen = ++playGen;
+  // Bez tego stary utwor gral dalej przez cale rozwiazywanie adresu, a ekran
+  // pokazywal juz nowy - wygladalo, jakby przelaczenie nie zadzialalo.
+  if (!t.file && !t.src) {
+    audio.pause();
+    audio.removeAttribute('src');
+    loading = true;
+  }
   if (cur()?.np) renderNP();
+
+  const ok = await resolveStream(t);
+  if (gen !== playGen) return;              // uzytkownik przeskoczyl w miedzyczasie
+  loading = false;
+  if (!ok) { if (qi < queue.length - 1) next(); else if (cur()?.np) renderNP(); return; }
+
+  audio.src = t.file || t.src;
+  audio.play().catch(()=>{});
+  if (cur()?.np) renderNP();
+  prefetch(queue[qi + 1]);
 }
 const toggle = () => { if (qi < 0) return; audio.paused ? audio.play().catch(()=>{}) : audio.pause(); };
 const next = () => play(qi + 1);
@@ -554,6 +774,8 @@ const ICON = {
   info:     SVG('<circle cx="24" cy="24" r="14"/><path d="M24 23v10"/><circle cx="24" cy="16.5" r="1.9" fill="#fff" stroke="none"/>'),
   note:     SVG('<path d="M20 33V14l15-3v19"/><ellipse cx="15.5" cy="33" rx="5" ry="4.2" fill="#fff" stroke="none"/><ellipse cx="30.5" cy="30" rx="5" ry="4.2" fill="#fff" stroke="none"/>'),
   globe:    SVG('<circle cx="24" cy="24" r="14"/><ellipse cx="24" cy="24" rx="6" ry="14"/><path d="M11 19h26M11 29h26"/>'),
+  cloud:    SVG('<path d="M16 34a8 8 0 0 1 .8-16 11 11 0 0 1 20.6 4.2A7 7 0 0 1 35 34z"/>'
+                + '<path d="M22 31V20l9-1.8V29" stroke-width="2.2"/>'),
   trash:    SVG('<path d="M10 15h28"/><path d="M19 15v-4h10v4"/><path d="M14 15l2 24h16l2-24"/><path d="M21 21v12M27 21v12"/>'),
 };
 
@@ -593,6 +815,8 @@ function render() {
 
   if (s.np)  return renderNP();
   if (s.dl)  return renderDL();
+  if (s.id)  return renderID();
+  if (s.link) return renderLink();
   if (s.cf)  return renderCF(s);
 
   body.className = 'body' + (s.split ? ' split' : '');
@@ -668,10 +892,14 @@ function renderNP() {
   const ov = th !== 'classic';                     // poza klasycznym opis lezy na obrazie
   body.className = 'body';
   body.innerHTML = `<div class="np ${th}${ov ? ' ov' : ''}">
+      ${t && t.remote ? `<div class="npx">
+        ${t.id ? `<button id="npradio" title="${T.radio}">${ICON.shuffle}</button>` : ''}
+        <button id="npsave" title="${T.saveTrack}">${ICON.download}</button>
+      </div>` : ''}
       <div class="stage st-${th}"></div>
       <div class="foot">
         <div class="ti"></div><div class="ar"></div>
-        <div class="nof">${qi+1} ${T.of} ${queue.length}</div>
+        <div class="nof">${loading ? T.loading : `${qi+1} ${T.of} ${queue.length}`}</div>
         <div class="prog">
           <div class="track"><i id="pfill"></i></div>
           <div class="times"><span id="pnow">0:00</span><span id="pend">0:00</span></div>
@@ -682,6 +910,20 @@ function renderNP() {
   if (t?.art) { npArt = new Image(); npArt.src = t.art; }
   body.querySelector('.ti').textContent = t ? t.title  : T.nothingPlaying;
   body.querySelector('.ar').textContent = t ? t.artist : '';
+  // Pobieranie tylko na zadanie: bez kliniecia to zwykly odtwarzacz.
+  const sv = $('#npsave');
+  if (sv) sv.onclick = async () => {
+    sv.disabled = true; sv.title = T.saving;
+    const r = await ipod.downloadTrack(t.id || t.q);
+    sv.disabled = false;
+    sv.title = r.ok ? T.saved : (r.error || '');
+    sv.classList.toggle('done', !!r.ok);
+    if (r.ok) await load();
+  };
+  const rd = $('#npradio');
+  if (rd) rd.onclick = () =>
+    push(TRACKS(T.radio, async () => (await ipod.ytmRadio(t.id)).map(ytmTrack)));
+
   (STAGE[th] || STAGE.classic)(body.querySelector('.stage'), t);
   paintBar();
 }
@@ -1868,6 +2110,7 @@ let analyser = null, freq = null, probed = false;
 
 async function wireAnalyser() {
   if (probed || !queue[qi]) return;
+  if (!queue[qi].file && !queue[qi].src) return;   // strumien jeszcze sie nie rozwiazal
   probed = true;
   try {
     const ctx = new AudioContext();
@@ -1875,7 +2118,7 @@ async function wireAnalyser() {
     const mute = ctx.createGain(); mute.gain.value = 0; mute.connect(ctx.destination);
     const test = ctx.createAnalyser(); test.fftSize = 256; test.connect(mute);
 
-    const p = new Audio(queue[qi].file);
+    const p = new Audio(queue[qi].file || queue[qi].src);
     ctx.createMediaElementSource(p).connect(test);
     await new Promise(r => p.addEventListener('loadedmetadata', r, { once:true }));
     p.currentTime = (p.duration || 9) / 3;          // srodek utworu, zeby nie trafic w cisze
@@ -1892,6 +2135,70 @@ async function wireAnalyser() {
     a.connect(ctx.destination);
     analyser = a; freq = new Uint8Array(a.frequencyBinCount);
   } catch {}
+}
+
+function renderLink() {
+  const s = cur();
+  body.className = 'body';
+  body.innerHTML = `<div class="dl">
+      <h3>${T.spotifyLink}</h3>
+      <input id="slink" spellcheck="false">
+      <div class="msg" id="lmsg"></div>
+      <div class="hint" id="lhint"></div>
+    </div>`;
+  const inp = $('#slink'), msg = $('#lmsg'), hint = $('#lhint');
+  inp.placeholder = T.pasteSpotify;
+  hint.textContent = T.hintSpotify;
+  inp.focus();
+
+  s.submit = async () => {
+    if (inp.disabled || !inp.value.trim()) return;
+    inp.disabled = true;
+    msg.className = 'msg'; msg.textContent = T.loading;
+    const r = await ipod.spotifyLinkTracks(inp.value.trim());
+    inp.disabled = false;
+    if (!r.ok) { msg.className = 'msg err'; msg.textContent = r.error; return; }
+    msg.textContent = '';
+    push(TRACKS(T.spotify, async () => r.tracks.map(spTrack)));
+  };
+  inp.onkeydown = e => { if (e.key === 'Enter') s.submit(); };
+}
+
+// Spotify nie pozwala na wspolny klucz w aplikacji: tryb deweloperski daje
+// jednej aplikacji piec kont i wymaga Premium. Kazdy podaje wiec swoj Client ID.
+function renderID() {
+  const s = cur();
+  body.className = 'body';
+  body.innerHTML = `<div class="dl">
+      <h3>${T.spotifyId}</h3>
+      <input id="cid" spellcheck="false">
+      <div class="msg" id="imsg"></div>
+      <div class="hint" id="ihint"></div>
+    </div>`;
+  const inp = $('#cid'), msg = $('#imsg'), hint = $('#ihint');
+  inp.value = spClientId;
+  inp.placeholder = T.pasteId;
+  hint.append(T.spotifyIdHint + ' ');
+  const c = document.createElement('code'); c.textContent = spRedirect;
+  hint.append(c, document.createElement('br'), T.spotifyPremium + ' ' + T.spotifyAudioNote);
+  inp.focus();
+
+  s.submit = async () => {
+    if (inp.disabled) return;
+    inp.disabled = true;
+    msg.className = 'msg';
+    const id = inp.value.trim();
+    const set = await ipod.spotifySetId(id);
+    if (!set.ok) { msg.className = 'msg err'; msg.textContent = set.error; inp.disabled = false; return; }
+    spClientId = id;
+    // Logowanie otwiera sie w zwyklej przegladarce i wraca na 127.0.0.1
+    msg.textContent = T.connect + '…';
+    const r = await ipod.spotifyLogin();
+    inp.disabled = false;
+    if (r.ok) { spLinked = true; stack[stack.length-1] = SPHOME(); render(); }
+    else { msg.className = 'msg err'; msg.textContent = r.error; }
+  };
+  inp.onkeydown = e => { if (e.key === 'Enter') s.submit(); };
 }
 
 function renderDL() {
@@ -1993,7 +2300,7 @@ wheel.addEventListener('pointerup', () => {
 // srodkowy przycisk i Enter robia to samo, zaleznie od ekranu
 function press() {
   const s = cur();
-  if (s.dl) s.submit?.(); else if (s.np) toggle(); else select();
+  if (s.dl || s.id || s.link) s.submit?.(); else if (s.np) toggle(); else select();
 }
 $('#center').onclick = press;
 $('#close').onclick  = () => ipod.quit();
@@ -2027,12 +2334,19 @@ function paintBattery() {
 // ---------- start ----------
 async function load() { tracks = await ipod.listTracks(); }
 
+async function loadAccounts() {
+  const y = await ipod.ytmStatus();   ytmMode = y.mode;
+  const sp = await ipod.spotifyStatus();
+  spLinked = sp.linked; spClientId = sp.clientId; spRedirect = sp.redirect;
+}
+
 (async () => {
   const L = await ipod.language();          // jezyk systemu albo zapamietany wybor
   T = L.dict; LANGS = L.list; LOCALE = L.locale;
   const st = await ipod.downloaderStatus();
   dlBin = st.path; dlDir = st.dir;
   await load();
+  await loadAccounts();
   stack = [MAIN()];
   render();
   paintBattery();
