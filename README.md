@@ -13,7 +13,13 @@ that wheel on my desktop. The visualizers and the downloader grew out of it late
 
 ## What it does
 
-- Plays your local library from `~/Music/iPod` — no account, no streaming service.
+- Plays your local library from `~/Music/iPod`.
+- Streams from YouTube Music if you log in: your playlists, Liked Music, and the
+  radio mix that follows any track. Nothing is downloaded unless you press the
+  small button on the playback screen — otherwise it is just a player.
+- Spotify as a source of lists only. Paste a link to a public playlist, or log in
+  with your own Client ID to browse your own. Spotify's audio is encrypted and
+  stays that way; the sound comes from YouTube, matched by ISRC where one exists.
 - A click wheel you actually drag: scrolling is angular, the zones are Menu, prev,
   next and play/pause, the centre button selects.
 - Cover Flow both as a library view and as a playback screen, with covers sliding
@@ -23,6 +29,8 @@ that wheel on my desktop. The visualizers and the downloader grew out of it late
   them that car-display look.
 - Optional downloading through `yt-dlp`, including Spotify links used purely as a
   list of titles.
+- A main menu you arrange yourself: hide the entries you do not use and reorder
+  the rest, from Settings.
 - Interface in 29 languages, picked from your system settings.
 
 ## Around the app
@@ -48,8 +56,9 @@ the speed, and the bass drives the exhaust flame.
 ## Requirements
 
 - macOS on Apple silicon.
-- [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) — **only** if you want the download
-  screen. It is not bundled; install it yourself with `brew install yt-dlp`.
+- [`yt-dlp`](https://github.com/yt-dlp/yt-dlp) — needed for the download screen and
+  for streaming from YouTube Music or Spotify. It is not bundled; install it
+  yourself with `brew install yt-dlp`. The local library works without it.
 - `ffmpeg` — optional. Without it the player still works, but cover art is not
   embedded into files and broken containers are not repaired. `brew install ffmpeg`.
 
