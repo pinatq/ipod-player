@@ -445,13 +445,20 @@ let ytmMode = null, spLinked = false, spClientId = '', spRedirect = '';
 // z `go:` - lista podmienia sie na miejscu, gdy dane dojda.
 function asyncScreen(title, loader) {
   const s = { title, split:true, sel:0, items:[{ lbl:T.loading, leaf:true, act(){} }] };
-  const done = items => {
-    s.items = items.length ? items : [{ lbl:T.empty, leaf:true, act(){} }];
+  const fill = (items, powod) => {
+    s.items = items.length ? items : [{ lbl:powod || T.empty, leaf:true, act(){} }];
     s.sel = 0;
     if (cur() === s) render();
   };
-  loader().then(done, () => done([]));
+  loader().then(items => fill(items), err => fill([], err && err.powod));
   return s;
+}
+
+// Puste zrodlo to nie to samo co nieudane zapytanie - wygasla sesja pokazywala
+// sie dotad jako pusta biblioteka.
+function wymagaSesji(lista) {
+  if (!lista) throw { powod: T.errYtmList };
+  return lista;
 }
 
 const ytmTrack = t => ({
@@ -459,7 +466,10 @@ const ytmTrack = t => ({
   art: `https://i.ytimg.com/vi/${t.id}/hqdefault.jpg`,
 });
 const spTrack = t => ({
-  q: ipod.matchQuery(t), title: t.title, artist: t.artist, art: t.art, remote: 'sp',
+  q: ipod.matchQuery(t), title: t.title, artist: t.artist, remote: 'sp',
+  // artPlaceholder musi isc dalej, inaczej wspolna okladka playlisty zostaje
+  // na wszystkich utworach zamiast ustapic miniaturze z YouTube
+  art: t.art, artPlaceholder: t.artPlaceholder,
 });
 
 // Lista utworow ze Shuffle na gorze - ten sam uklad co w Muzyce.
@@ -496,9 +506,9 @@ function YTMCONNECT() {
 
 const YTMHOME = () => asyncScreen(T.ytm, async () => [
   { lbl:T.likedMusic, icon:'cloud',
-    go:() => TRACKS(T.likedMusic, async () => (await ipod.ytmTracks('LM')).map(ytmTrack)) },
-  ...(await ipod.ytmPlaylists()).map(p => ({ lbl:p.title, icon:'cloud',
-    go:() => TRACKS(p.title, async () => (await ipod.ytmTracks(p.id)).map(ytmTrack)) })),
+    go:() => TRACKS(T.likedMusic, async () => wymagaSesji(await ipod.ytmTracks('LM')).map(ytmTrack)) },
+  ...wymagaSesji(await ipod.ytmPlaylists()).map(p => ({ lbl:p.title, icon:'cloud',
+    go:() => TRACKS(p.title, async () => wymagaSesji(await ipod.ytmTracks(p.id)).map(ytmTrack)) })),
   { lbl:T.disconnect, icon:'trash', leaf:true,
     act:async () => { await ipod.ytmDisconnect(); ytmMode = null; pop(); } },
 ]);
@@ -922,7 +932,7 @@ function renderNP() {
   };
   const rd = $('#npradio');
   if (rd) rd.onclick = () =>
-    push(TRACKS(T.radio, async () => (await ipod.ytmRadio(t.id)).map(ytmTrack)));
+    push(TRACKS(T.radio, async () => (await ipod.ytmRadio(t.id) || []).map(ytmTrack)));
 
   (STAGE[th] || STAGE.classic)(body.querySelector('.stage'), t);
   paintBar();

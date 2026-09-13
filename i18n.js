@@ -115,6 +115,7 @@ const STRINGS = {
 
     errYtmLogin: "Not logged in — no YouTube Music session found.",
     errYtmCookies: "Could not read cookies from Safari. Log in to YouTube Music there first.",
+    errYtmList: "Could not read the library — the session has expired, or the app cannot reach Safari's cookies. Reconnect under Settings.",
     errStream: "Could not get the audio stream.",
     errSpotifyId: "That is not a valid Client ID (32 hex characters).",
     errSpotifyAuth: "Spotify authorisation failed.",
@@ -229,6 +230,7 @@ const STRINGS = {
 
     errYtmLogin: "Nie zalogowano — nie znaleziono sesji YouTube Music.",
     errYtmCookies: "Nie udało się odczytać ciasteczek z Safari. Zaloguj się tam najpierw w YouTube Music.",
+    errYtmList: "Nie udało się odczytać biblioteki — sesja wygasła albo aplikacja nie ma dostępu do ciasteczek Safari. Połącz ponownie w Ustawieniach.",
     errStream: "Nie udało się pobrać strumienia audio.",
     errSpotifyId: "To nie jest poprawny Client ID (32 znaki szesnastkowe).",
     errSpotifyAuth: "Autoryzacja Spotify nie powiodła się.",

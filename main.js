@@ -352,16 +352,19 @@ ipcMain.handle('ytm-login', async () => {
   return { ok: true, mode: 'window' };
 });
 
+// null = nie udalo sie zapytac (najczesciej ciasteczka), [] = naprawde pusto.
+// Bez tego rozroznienia wygasla sesja wygladala jak pusta biblioteka.
 ipcMain.handle('ytm-playlists', async () => {
   const d = await ytdlpJson(flatArgs('https://www.youtube.com/feed/playlists'));
-  const out = (d && Array.isArray(d.entries) ? d.entries : []).map(mapYtmPlaylist).filter(Boolean);
-  return out;
+  if (!d) return null;
+  return (Array.isArray(d.entries) ? d.entries : []).map(mapYtmPlaylist).filter(Boolean);
 });
 
 ipcMain.handle('ytm-tracks', async (e, id) => {
   if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{2,60}$/.test(id)) return [];
   const d = await ytdlpJson(flatArgs(ytmPlaylistUrl(id), 200));
-  return (d && Array.isArray(d.entries) ? d.entries : []).map(mapYtmEntry).filter(Boolean);
+  if (!d) return null;
+  return (Array.isArray(d.entries) ? d.entries : []).map(mapYtmEntry).filter(Boolean);
 });
 
 ipcMain.handle('ytm-radio', async (e, id) => {
